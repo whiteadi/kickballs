@@ -1,0 +1,30 @@
+{
+  "name": "kickballs",
+  "version": "1.0.0",
+  "description": "phaser game",
+  "main": "game.js",
+  "dependencies": {
+    "eslint": "^5.5.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "lite-server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/whiteadi/kickballs.git"
+  },
+  "keywords": [
+    "phaser",
+    "whiteadi"
+  ],
+  "author": "Adrian Albu",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/whiteadi/kickballs/issues"
+  },
+  "homepage": "https://github.com/whiteadi/kickballs#readme",
+  "devDependencies": {
+    "lite-server": "^2.4.0"
+  }
+}
