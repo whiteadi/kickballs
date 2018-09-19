@@ -3,7 +3,7 @@
 The idea of the game was actually given to me by [Enric](https://github.com/eballo) when I asked him, in a cloudy afternoon, to give me an idea of a simple game to play with in order to learn phaser...
 #### I used the bootstrap project for creating games with Phaser + ES6 + Webpack:
 
-![Phaser+ES6+Webpack](https://raw.githubusercontent.com/lean/phaser-es6-webpack/master/assets/images/phaser-es6-webpack.jpg)
+[Phaser+ES6+Webpack](https://github.com/lean/phaser-es6-webpack)
 
 # Setup for dev or running locally
 
