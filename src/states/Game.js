@@ -81,7 +81,7 @@ export default class extends Phaser.State {
           } else {
             if (!this.lost) {
               this.scoreText.x = game.world.centerX - 150
-              this.scoreText.font.fill = '#107378'
+              this.scoreText.fill = '#107378'
               this.stateText.text = ' You Won!'
               this.stateText.visible = true
               this.resetTimer()
@@ -101,7 +101,7 @@ export default class extends Phaser.State {
     }
   }
   nextLevel = () => {
-    // each lvl has a number of balls
+    // each lvl has a number of balls, and increased ball speed ;)    
     for (let i = 0; i < LEVELS[this.level]; i++) {
       // Give the balls a different alpha increase speed.
       this.balls[i] = this.game
@@ -143,6 +143,9 @@ export default class extends Phaser.State {
         toy = this.rand(h)
       }
 
+      // increase ballspeed per lvl
+      const lvlBallSpeed = BALLSPEED + this.level * 10
+
       // Enable input.
       this.game
         .physics
@@ -159,10 +162,10 @@ export default class extends Phaser.State {
         .add(this.kill)
       this.balls[i].body.velocity.x = (Math.random() < 0.5
         ? -1
-        : 1) * (BALLSPEED + Math.random() * 5)
+        : 1) * (lvlBallSpeed + Math.random() * (Math.floor(Math.random() * 10) + 2 ))
       this.balls[i].body.velocity.y = (Math.random() < 0.5
         ? -1
-        : 1) * (BALLSPEED + Math.random() * 5)
+        : 1) * (lvlBallSpeed + Math.random() * (Math.floor(Math.random() * 10) + 2 ))
       this.balls[i].angle = 90 + (Math.atan2(yy - toy, xx - tox) * 180) / Math.PI
       this.balls[i].body.collideWorldBounds = true
       if (this.level > 0) {
