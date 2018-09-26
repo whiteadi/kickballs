@@ -34,7 +34,7 @@ or if you chose yarn, just run ```yarn```
 
 Run:
 
-```npm run dev```
+```npm run dev```  or ```yarn dev```
 
 This will run a server so you can run the game in a browser. It will also start a watch process, so you can change the source and the process will recompile and refresh the browser automatically.
 
@@ -63,7 +63,7 @@ There is 3 platforms actually tested and supported :
 First run (ios example):
 
 ```
-npm run cordova
+yarn cordova
 cordova platform add ios
 cordova run ios
 ```
@@ -71,7 +71,7 @@ cordova run ios
 Update (ios example):
 
 ```
-npm run cordova
+yarn cordova
 cordova platform update ios
 cordova run ios
 ```
