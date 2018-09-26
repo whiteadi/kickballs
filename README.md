@@ -55,6 +55,9 @@ Make sure to uncomment the cordova.js file in the src/index.html and to update c
 More informations about the cordova configuration:
 https://cordova.apache.org/docs/en/latest/config_ref/
 
+Also u need 2 have cordova installed globally:
+```npm install -g cordova```
+
 There is 3 platforms actually tested and supported : 
 - browser
 - ios
