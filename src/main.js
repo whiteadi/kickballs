@@ -5,15 +5,14 @@ import BootState from './states/Boot'
 import GameState from './states/Game'
 import Phaser from 'phaser'
 import SplashState from './states/Splash'
-import config from './config'
 
 class Game extends Phaser.Game {
   constructor () {
     const docElement = document.documentElement
     const calculateWidth = window.innerWidth * window.devicePixelRatio
     const calculateHeight = window.innerHeight * window.devicePixelRatio
-    const width = docElement.clientWidth > calculateWidth ? calculateWidth : docElement.clientWidth
-    const height = docElement.clientHeight > calculateHeight ? calculateHeight : docElement.clientHeight
+    const width = Math.min(docElement.clientWidth, calculateWidth)
+    const height = Math.min(docElement.clientHeight, calculateHeight)
 
     super(width, height, Phaser.CANVAS, 'content', null)
 

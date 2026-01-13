@@ -1,6 +1,14 @@
 {
-  "presets": ["env", "es2015"],
-  "plugins": [
-    "babel-plugin-transform-class-properties"
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "targets": {
+          "browsers": ["last 2 versions", "not dead"]
+        },
+        "useBuiltIns": "usage",
+        "corejs": 3
+      }
+    ]
   ]
 }

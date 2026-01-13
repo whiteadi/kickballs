@@ -1,74 +1,99 @@
-var path = require('path')
-var webpack = require('webpack')
-var HtmlWebpackPlugin = require('html-webpack-plugin')
-var BrowserSyncPlugin = require('browser-sync-webpack-plugin')
+const path = require('path')
+const webpack = require('webpack')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
 
 // Phaser webpack config
-var phaserModule = path.join(__dirname, '/node_modules/phaser-ce/')
-var phaser = path.join(phaserModule, 'build/custom/phaser-split.js')
-var pixi = path.join(phaserModule, 'build/custom/pixi.js')
-var p2 = path.join(phaserModule, 'build/custom/p2.js')
-
-var definePlugin = new webpack.DefinePlugin({
-  __DEV__: JSON.stringify(JSON.parse(process.env.BUILD_DEV || 'true'))
-})
+const phaserModule = path.join(__dirname, '/node_modules/phaser-ce/')
+const phaser = path.join(phaserModule, 'build/custom/phaser-split.js')
+const pixi = path.join(phaserModule, 'build/custom/pixi.js')
+const p2 = path.join(phaserModule, 'build/custom/p2.js')
 
 module.exports = {
   entry: {
-    app: [
-      'babel-polyfill',
-      path.resolve(__dirname, 'src/main.js')
-    ],
-    vendor: ['pixi', 'p2', 'phaser', 'webfontloader']
+    app: path.resolve(__dirname, 'src/main.js')
   },
-  devtool: 'cheap-source-map',
+  devtool: 'eval-source-map',
   output: {
     pathinfo: true,
     path: path.resolve(__dirname, 'dist'),
-    publicPath: './dist/',
-    filename: 'bundle.js'
+    publicPath: '/',
+    filename: '[name].bundle.js'
   },
-  watch: true,
-  plugins: [
-    definePlugin,
-    new webpack.optimize.CommonsChunkPlugin({ name: 'vendor'/* chunkName= */, filename: 'vendor.bundle.js'/* filename= */}),
-    new HtmlWebpackPlugin({
-      filename: '../index.html',
-      template: './src/index.html',
-      chunks: ['vendor', 'app'],
-      chunksSortMode: 'manual',
-      minify: {
-        removeAttributeQuotes: false,
-        collapseWhitespace: false,
-        html5: false,
-        minifyCSS: false,
-        minifyJS: false,
-        minifyURLs: false,
-        removeComments: false,
-        removeEmptyAttributes: false
+  devServer: {
+    static: [
+      {
+        directory: path.join(__dirname),
+        publicPath: '/'
       },
-      hash: false
-    }),
-    new BrowserSyncPlugin({
-      host: process.env.IP || 'localhost',
-      port: process.env.PORT || 3000,
-      server: {
-        baseDir: ['./', './build']
+      {
+        directory: path.join(__dirname, 'dist'),
+        publicPath: '/'
       }
+    ],
+    compress: true,
+    port: process.env.PORT || 3000,
+    host: process.env.IP || 'localhost',
+    open: true,
+    hot: true
+  },
+  plugins: [
+    new webpack.DefinePlugin({
+      __DEV__: JSON.stringify(true)
+    }),
+    new HtmlWebpackPlugin({
+      filename: 'index.html',
+      template: './src/index.html',
+      minify: false,
+      hash: false
     })
   ],
   module: {
     rules: [
-      { test: /\.js$/, use: ['babel-loader'], include: path.join(__dirname, 'src') },
-      { test: /pixi\.js/, use: ['expose-loader?PIXI'] },
-      { test: /phaser-split\.js$/, use: ['expose-loader?Phaser'] },
-      { test: /p2\.js/, use: ['expose-loader?p2'] }
+      { 
+        test: /\.js$/, 
+        use: ['babel-loader'], 
+        include: path.join(__dirname, 'src') 
+      },
+      { 
+        test: /pixi\.js/, 
+        use: [{
+          loader: 'expose-loader',
+          options: {
+            exposes: 'PIXI'
+          }
+        }]
+      },
+      { 
+        test: /phaser-split\.js$/, 
+        use: [{
+          loader: 'expose-loader',
+          options: {
+            exposes: 'Phaser'
+          }
+        }]
+      },
+      { 
+        test: /p2\.js/, 
+        use: [{
+          loader: 'expose-loader',
+          options: {
+            exposes: 'p2'
+          }
+        }]
+      }
     ]
   },
-  node: {
-    fs: 'empty',
-    net: 'empty',
-    tls: 'empty'
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10
+        }
+      }
+    }
   },
   resolve: {
     alias: {
