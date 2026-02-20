@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { resolve } from 'path';
+import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   base: './',
@@ -12,7 +12,7 @@ export default defineConfig({
     minify: 'terser',
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html')
+        main: fileURLToPath(new URL('./index.html', import.meta.url))
       },
       output: {
         manualChunks: {
@@ -23,7 +23,8 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    open: true
+    open: true,
+    host: true // Allow access from network (for mobile testing)
   },
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx', '.json']
