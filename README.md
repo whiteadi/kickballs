@@ -1,90 +1,149 @@
-# simple phaser game, destroy all balls
+# KickBalls - Phaser 3 Game
 
-The idea of the game was actually given to me by [Enric](https://github.com/eballo) when I asked him, in a cloudy afternoon, to give me an idea of a simple game to play with in order to learn phaser...
-#### I used the bootstrap project for creating games with Phaser + ES6 + Webpack:
+A simple ball-destroying game built with **Phaser 3**, **TypeScript**, **Vite**, and **Capacitor** for mobile deployment.
 
-[Phaser+ES6+Webpack](https://github.com/lean/phaser-es6-webpack)
+The idea of the game was given by [Enric](https://github.com/eballo) - destroy all the balls before time runs out!
 
-# Setup for dev or running locally
+## 🎮 How to Play
 
-## 1. Clone this repo:
+1. Click the logo to start the game
+2. Click/tap on balls to destroy them
+3. Complete each level before time runs out
+4. Progress through 6 increasingly difficult levels
 
-Navigate into your workspace directory.
+## 🛠️ Tech Stack
 
-Run:
+- **[Phaser 3](https://phaser.io/)** - Modern HTML5 game framework
+- **[TypeScript](https://www.typescriptlang.org/)** - Type-safe JavaScript
+- **[Vite](https://vitejs.dev/)** - Fast build tool and dev server
+- **[Capacitor](https://capacitorjs.com/)** - Native mobile deployment (iOS/Android)
 
-```git clone https://github.com/whiteadi/kickballs.git```
+## 📦 Setup
 
-## 2. Install node.js and npm:
+### Prerequisites
 
-https://nodejs.org/en/
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- npm or yarn
 
+### Installation
 
-## 3. Install dependencies (optionally you can install [yarn](https://yarnpkg.com/)):
+```bash
+# Clone the repository
+git clone https://github.com/whiteadi/kickballs.git
+cd kickballs
 
-Navigate to the cloned repo's directory.
-
-Run:
-
-```npm install``` 
-
-or if you chose yarn, just run ```yarn```
-
-## 4. Run the development server:
-
-Run:
-
-```npm run dev```  or ```yarn dev```
-
-This will run a server so you can run the game in a browser. It will also start a watch process, so you can change the source and the process will recompile and refresh the browser automatically.
-
-To run the game, open your browser and enter http://localhost:3000 into the address bar.
-
-
-## Build for deployment:
-
-Run:
-
-```npm run deploy```
-
-This will optimize and minimize the compiled bundle.
-
-## Deploy for cordova:
-Make sure to uncomment the cordova.js file in the src/index.html and to update config.xml with your informations. (name/description...)
-
-More informations about the cordova configuration:
-https://cordova.apache.org/docs/en/latest/config_ref/
-
-There is 3 platforms actually tested and supported : 
-- browser
-- ios
-- android
-
-First run (ios example):
-
-```
-yarn cordova
-cordova platform add ios
-cordova run ios
+# Install dependencies
+npm install
 ```
 
-Update (ios example):
+## 🚀 Development
+
+```bash
+# Start development server
+npm run dev
+```
+
+This will start a local server at http://localhost:3000 with hot module replacement.
+
+## 📱 Building
+
+### Web Build
+
+```bash
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+### Mobile Build (Capacitor)
+
+#### Initial Setup
+
+```bash
+# Add Android platform
+npm run cap:add:android
+
+# Add iOS platform (macOS only)
+npm run cap:add:ios
+```
+
+#### Building for Mobile
+
+```bash
+# Build web assets and sync to native projects
+npm run mobile:build
+
+# Open in Android Studio
+npm run cap:open:android
+
+# Open in Xcode (macOS only)
+npm run cap:open:ios
+```
+
+## 📁 Project Structure
 
 ```
-yarn cordova
-cordova platform update ios
-cordova run ios
+kickballs/
+├── assets/              # Game assets (images, audio)
+│   ├── images/
+│   └── media/
+├── src/
+│   ├── scenes/          # Phaser 3 scenes
+│   │   ├── BootScene.ts
+│   │   ├── SplashScene.ts
+│   │   └── GameScene.ts
+│   ├── types/           # TypeScript type definitions
+│   ├── utils/           # Utility functions and constants
+│   ├── config.ts        # Game configuration
+│   └── main.ts          # Entry point
+├── index.html           # HTML template
+├── vite.config.ts       # Vite configuration
+├── tsconfig.json        # TypeScript configuration
+├── capacitor.config.ts  # Capacitor configuration
+└── package.json
 ```
 
-This will optimize and minimize the compiled bundle.
+## 🎯 Game Features
 
-## Config:
-before you get to work you will surely want to check the config file. You could setup dimensions, webfonts, etc
+- 6 progressive difficulty levels
+- Increasing ball count and speed per level
+- Time-based challenges
+- Sound effects and background music
+- Camera shake effects
+- Explosion animations
+- Score tracking
 
-## Webfonts:
-In the config file you can specify which webfonts you want to include. In case you do not want to use webfonts simply leave the array empty
+## 🔧 Configuration
 
-## Credits
-Big thanks to these great repo:
+Edit `src/config.ts` to customize:
 
-https://github.com/lean/phaser-es6-webpack/
+```typescript
+export default {
+  gameWidth: 480,
+  gameHeight: 640,
+  localStorageName: 'kickballs-phaser3',
+  webfonts: ['Bangers']
+};
+```
+
+## 📄 License
+
+GPL-3.0 - see [LICENSE.md](LICENSE.md)
+
+## 🙏 Credits
+
+- Original game concept by [Enric](https://github.com/eballo)
+- Built with [Phaser 3](https://phaser.io/)
+- Mobile deployment with [Capacitor](https://capacitorjs.com/)
+
+## 🔄 Migration from v1
+
+This is version 2.0, migrated from:
+- Phaser CE (v2) → Phaser 3
+- Cordova → Capacitor
+- Webpack → Vite
+- JavaScript → TypeScript
+
+The original v1 code is preserved in the git history.
