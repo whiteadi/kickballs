@@ -1,5 +1,7 @@
 export const BALL_SPEED = 180;
 
-export const TIME_INTERVALS = [4, 10, 17, 22, 26, 33];
+// Time limits per level (in seconds)
+export const TIME_INTERVALS = [6, 12, 18, 24, 30, 40];
 
-export const LEVELS = [4, 6, 15, 20, 26, 30];
+// Number of balls per level (rebalanced for playability)
+export const LEVELS = [4, 6, 8, 12, 16, 20];
