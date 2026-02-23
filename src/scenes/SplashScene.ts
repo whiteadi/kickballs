@@ -32,24 +32,24 @@ export default class SplashScene extends Phaser.Scene {
       progressBox.destroy();
     });
 
-    // Load game assets
-    this.load.image('ball', 'assets/images/black_ball.png');
-    this.load.image('background', 'assets/images/raindrop.jpg');
-    this.load.image('phaser', 'assets/images/EnemyBug.png');
-    this.load.spritesheet('explosion', 'assets/images/explosion.png', {
+    // Load game assets (served from publicDir 'assets', so paths start from there)
+    this.load.image('ball', 'images/black_ball.png');
+    this.load.image('background', 'images/raindrop.jpg');
+    this.load.image('phaser', 'images/EnemyBug.png');
+    this.load.spritesheet('explosion', 'images/explosion.png', {
       frameWidth: 64,
       frameHeight: 64
     });
-    this.load.image('logo', 'assets/images/logo.jpg');
-    this.load.image('restart', 'assets/images/restart.png');
+    this.load.image('logo', 'images/logo.jpg');
+    this.load.image('restart', 'images/restart.png');
 
     // Load audio
-    this.load.audio('boom', 'assets/media/explosion.wav');
-    this.load.audio('game-over', 'assets/media/game-over.wav');
-    this.load.audio('soundtrack', 'assets/media/Ascending2.mp3');
+    this.load.audio('boom', 'media/explosion.wav');
+    this.load.audio('game-over', 'media/game-over.wav');
+    this.load.audio('soundtrack', 'media/Ascending2.mp3');
 
     // Load mute button spritesheet
-    this.load.spritesheet('mute', 'assets/images/mute2.png', {
+    this.load.spritesheet('mute', 'images/mute2.png', {
       frameWidth: 25,
       frameHeight: 18
     });

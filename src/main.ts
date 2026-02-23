@@ -23,13 +23,26 @@ const gameConfig: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: config.gameWidth,
-    height: config.gameHeight
+    height: config.gameHeight,
+    parent: 'game-container'
+  },
+  render: {
+    pixelArt: false,
+    antialias: true,
+    antialiasGL: true,
+    powerPreference: 'high-performance'
   },
   physics: {
     default: 'arcade',
     arcade: {
       gravity: { x: 0, y: 6 },
       debug: false
+    }
+  },
+  input: {
+    activePointers: 3, // Support multi-touch
+    touch: {
+      capture: true
     }
   },
   scene: [BootScene, SplashScene, GameScene]

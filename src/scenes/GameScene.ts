@@ -244,6 +244,9 @@ export default class GameScene extends Phaser.Scene {
   private nextLevel(): void {
     const { width, height } = this.scale;
 
+    // Scale factor for balls - make them bigger on mobile
+    const ballScale = 1.5;
+
     for (let i = 0; i < LEVELS[this.level]; i++) {
       const ball = this.physics.add.sprite(
         width / 2 + Math.random() * 30,
@@ -252,8 +255,15 @@ export default class GameScene extends Phaser.Scene {
       );
 
       ball.setOrigin(0.5, 0.5);
-      ball.setInteractive();
-      ball.on('pointerup', () => this.killBall(ball));
+      ball.setScale(ballScale);
+      
+      // Make hit area larger than visual for easier touch
+      ball.setInteractive({
+        hitArea: new Phaser.Geom.Circle(0, 0, ball.width * 0.8),
+        hitAreaCallback: Phaser.Geom.Circle.Contains,
+        useHandCursor: true
+      });
+      ball.on('pointerdown', () => this.killBall(ball));
 
       // Random direction
       const randu = Math.floor(Math.random() * 4);

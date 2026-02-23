@@ -43,9 +43,9 @@ export default class BootScene extends Phaser.Scene {
       color: '#dddddd'
     }).setOrigin(0.5);
 
-    // Load loader assets
-    this.load.image('loaderBg', 'assets/images/loader-bg.png');
-    this.load.image('loaderBar', 'assets/images/loader-bar.png');
+    // Load loader assets (served from publicDir 'assets', so paths start from there)
+    this.load.image('loaderBg', 'images/loader-bg.png');
+    this.load.image('loaderBar', 'images/loader-bar.png');
   }
 
   update(): void {
