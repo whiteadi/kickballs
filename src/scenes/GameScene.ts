@@ -248,11 +248,42 @@ export default class GameScene extends Phaser.Scene {
     const ballScale = 1.5;
 
     for (let i = 0; i < LEVELS[this.level]; i++) {
-      const ball = this.physics.add.sprite(
-        width / 2 + Math.random() * 30,
-        height / 2 + Math.random() * 30,
-        'ball'
-      );
+      // From level 3+, spawn balls from random positions around the edges
+      // Before level 3, spawn from center
+      let spawnX: number;
+      let spawnY: number;
+
+      if (this.level >= 3) {
+        // Random spawn from edges
+        const edge = Math.floor(Math.random() * 4);
+        const margin = 50;
+        
+        switch (edge) {
+          case 0: // Top edge
+            spawnX = margin + Math.random() * (width - margin * 2);
+            spawnY = margin;
+            break;
+          case 1: // Bottom edge
+            spawnX = margin + Math.random() * (width - margin * 2);
+            spawnY = height - margin;
+            break;
+          case 2: // Left edge
+            spawnX = margin;
+            spawnY = margin + Math.random() * (height - margin * 2);
+            break;
+          case 3: // Right edge
+          default:
+            spawnX = width - margin;
+            spawnY = margin + Math.random() * (height - margin * 2);
+            break;
+        }
+      } else {
+        // Levels 0-2: spawn from center with small random offset
+        spawnX = width / 2 + (Math.random() - 0.5) * 60;
+        spawnY = height / 2 + (Math.random() - 0.5) * 60;
+      }
+
+      const ball = this.physics.add.sprite(spawnX, spawnY, 'ball');
 
       ball.setOrigin(0.5, 0.5);
       ball.setScale(ballScale);
@@ -265,42 +296,18 @@ export default class GameScene extends Phaser.Scene {
       });
       ball.on('pointerdown', () => this.killBall(ball));
 
-      // Random direction
-      const randu = Math.floor(Math.random() * 4);
-      let xx = 0, yy = 0, tox = 0, toy = 0;
-
-      if (randu === 0) {
-        xx = Math.floor(Math.random() * width);
-        yy = -ball.height / 2 + 2;
-        tox = Math.floor(Math.random() * width);
-        toy = height + ball.height;
-      } else if (randu === 1) {
-        xx = Math.floor(Math.random() * width);
-        yy = height + ball.height / 2 - 2;
-        tox = Math.floor(Math.random() * width);
-        toy = -ball.height;
-      } else if (randu === 2) {
-        xx = -ball.width / 2 + 2;
-        yy = Math.floor(Math.random() * height);
-        tox = width + ball.width;
-        toy = Math.floor(Math.random() * height);
-      } else {
-        xx = width + ball.width / 2 - 2;
-        yy = Math.floor(Math.random() * height);
-        tox = -ball.width;
-        toy = Math.floor(Math.random() * height);
-      }
-
       // Increase ball speed per level
       const lvlBallSpeed = BALL_SPEED + this.level * 10;
       const randomFactor = Math.floor(Math.random() * 10) + 2;
 
-      ball.setVelocity(
-        (Math.random() < 0.5 ? -1 : 1) * (lvlBallSpeed + Math.random() * randomFactor),
-        (Math.random() < 0.5 ? -1 : 1) * (lvlBallSpeed + Math.random() * randomFactor)
-      );
+      // Random velocity direction
+      const velX = (Math.random() < 0.5 ? -1 : 1) * (lvlBallSpeed + Math.random() * randomFactor);
+      const velY = (Math.random() < 0.5 ? -1 : 1) * (lvlBallSpeed + Math.random() * randomFactor);
 
-      ball.setAngle(90 + (Math.atan2(yy - toy, xx - tox) * 180) / Math.PI);
+      ball.setVelocity(velX, velY);
+
+      // Set angle based on velocity direction
+      ball.setAngle(90 + (Math.atan2(velY, velX) * 180) / Math.PI);
       ball.setCollideWorldBounds(true);
 
       if (this.level > 0) {
