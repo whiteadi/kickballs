@@ -33,7 +33,12 @@ export default class SplashScene extends Phaser.Scene {
     });
 
     // Load game assets (served from publicDir 'assets', so paths start from there)
+    // Different ball types for different levels
     this.load.image('ball', 'images/black_ball.png');
+    this.load.image('ball_shiny', 'images/shinyball.png');
+    this.load.image('ball_metal', 'images/metal.png');
+    this.load.image('ball_pang', 'images/pangball.png');
+    
     this.load.image('background', 'images/raindrop.jpg');
     this.load.image('phaser', 'images/EnemyBug.png');
     this.load.spritesheet('explosion', 'images/explosion.png', {

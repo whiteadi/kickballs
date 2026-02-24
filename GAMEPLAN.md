@@ -27,21 +27,24 @@ Consider adjusting based on new ball counts.
 
 ## 🚀 Enhancement Roadmap
 
-### Phase 1: Balance & Polish (Priority: HIGH)
-- [ ] Reduce ball counts for playability
-- [ ] Adjust time limits accordingly
-- [ ] Fine-tune ball speeds per level
-- [ ] Add level transition animations
+### Phase 1: Balance & Polish (Priority: HIGH) ✅ COMPLETED
+- [x] Reduce ball counts for playability (4, 6, 8, 12, 16, 20)
+- [x] Adjust time limits accordingly (8, 14, 20, 26, 34, 45 seconds)
+- [x] Fine-tune ball speeds per level (speed multipliers: 1.0x to 1.5x)
+- [x] Add level transition animations (level text + staggered ball spawn)
 
-### Phase 2: Visual Variety (Priority: MEDIUM)
-- [ ] **Different ball types per level**
-  - Level 1-2: Black balls (current)
+### Phase 2: Visual Variety (Priority: MEDIUM) ✅ COMPLETED
+- [x] **Different ball types per level**
+  - Level 1-2: Black balls (`black_ball.png`)
   - Level 3-4: Shiny balls (`shinyball.png`)
-  - Level 5-6: Metal balls (`metal.png`)
-- [ ] **Background variety**
-  - Different tints or backgrounds per level
-- [ ] **Ball size variation**
-  - Mix of small and large balls in later levels
+  - Level 5: Metal balls (`metal.png`)
+  - Level 6: Pang balls (`pangball.png`)
+- [x] **Background variety**
+  - Animated tint transitions per level (green→blue→red→yellow→purple)
+- [x] **Ball size variation**
+  - Level 1-2: Uniform size (1.5x)
+  - Level 3-4: Slight variation (0.9x-1.2x)
+  - Level 5-6: Mix of sizes (0.8x-1.4x)
 
 ### Phase 3: Gameplay Mechanics (Priority: MEDIUM)
 - [ ] **Combo System**

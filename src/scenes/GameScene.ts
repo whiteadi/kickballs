@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BALL_SPEED, LEVELS, TIME_INTERVALS } from '../utils/constants';
+import { BALL_SPEED, LEVELS, TIME_INTERVALS, SPEED_MULTIPLIERS } from '../utils/constants';
 
 declare const __DEV__: boolean;
 
@@ -49,9 +49,10 @@ export default class GameScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.scale;
 
-    // Set up physics
+    // Set up physics with margin to keep balls away from screen edges
+    const margin = 30;
     this.physics.world.gravity.y = 6;
-    this.physics.world.setBounds(-10, -10, 490, 650);
+    this.physics.world.setBounds(margin, margin, width - margin * 2, height - margin * 2);
 
     // Background
     this.theBackground = this.add.tileSprite(0, 0, 480, 640, 'background');
@@ -242,10 +243,126 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private nextLevel(): void {
+    // Show level transition animation
+    this.showLevelTransition(() => {
+      this.spawnBalls();
+    });
+
+    this.levelLabel.setText('Level ' + (this.level + 1));
+    this.scoreText.setText('Score: ' + this.score);
+  }
+
+  private getBackgroundTintForLevel(): number {
+    // Different background tints per level for visual variety
+    switch (this.level) {
+      case 0:
+        return 0xffffff; // Normal
+      case 1:
+        return 0xe8f4e8; // Slight green tint
+      case 2:
+        return 0xe8e8f4; // Slight blue tint
+      case 3:
+        return 0xf4e8e8; // Slight red tint
+      case 4:
+        return 0xf4f0e0; // Slight yellow/sepia tint
+      case 5:
+        return 0xe0e0e8; // Slight purple/dark tint
+      default:
+        return 0xffffff;
+    }
+  }
+
+  private showLevelTransition(onComplete: () => void): void {
     const { width, height } = this.scale;
 
-    // Scale factor for balls - make them bigger on mobile
-    const ballScale = 1.5;
+    // Update background tint for this level
+    const newTint = this.getBackgroundTintForLevel();
+    this.tweens.add({
+      targets: this.theBackground,
+      tint: newTint,
+      duration: 500,
+      ease: 'Power2'
+    });
+
+    // Create level announcement text
+    const levelText = this.add.text(width / 2, height / 2, `Level ${this.level + 1}`, {
+      fontSize: '64px',
+      color: '#ffffff',
+      fontFamily: 'Arial',
+      stroke: '#000000',
+      strokeThickness: 6
+    });
+    levelText.setOrigin(0.5, 0.5);
+    levelText.setAlpha(0);
+    levelText.setScale(0.5);
+
+    // Animate the level text
+    this.tweens.add({
+      targets: levelText,
+      alpha: 1,
+      scale: 1,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        // Hold for a moment then fade out
+        this.time.delayedCall(500, () => {
+          this.tweens.add({
+            targets: levelText,
+            alpha: 0,
+            scale: 1.5,
+            duration: 300,
+            ease: 'Power2',
+            onComplete: () => {
+              levelText.destroy();
+              onComplete();
+            }
+          });
+        });
+      }
+    });
+  }
+
+  private getBallTextureForLevel(): string {
+    // Different ball types per level for visual variety
+    switch (this.level) {
+      case 0:
+      case 1:
+        return 'ball'; // Black balls for tutorial levels
+      case 2:
+      case 3:
+        return 'ball_shiny'; // Shiny balls for medium levels
+      case 4:
+        return 'ball_metal'; // Metal balls for hard level
+      case 5:
+        return 'ball_pang'; // Pang balls for expert level
+      default:
+        return 'ball';
+    }
+  }
+
+  private getBallScaleForLevel(): number {
+    // Base scale for mobile
+    const baseScale = 1.5;
+    
+    // Add size variation at higher levels
+    if (this.level >= 4) {
+      // Mix of sizes: some smaller, some larger
+      return baseScale * (0.8 + Math.random() * 0.6); // 0.8x to 1.4x
+    } else if (this.level >= 2) {
+      // Slight variation
+      return baseScale * (0.9 + Math.random() * 0.3); // 0.9x to 1.2x
+    }
+    return baseScale;
+  }
+
+  private spawnBalls(): void {
+    const { width, height } = this.scale;
+
+    // Get ball texture for this level
+    const ballTexture = this.getBallTextureForLevel();
+
+    // Get speed multiplier for current level
+    const speedMultiplier = SPEED_MULTIPLIERS[this.level] || 1.0;
 
     for (let i = 0; i < LEVELS[this.level]; i++) {
       // From level 3+, spawn balls from random positions around the edges
@@ -283,26 +400,32 @@ export default class GameScene extends Phaser.Scene {
         spawnY = height / 2 + (Math.random() - 0.5) * 60;
       }
 
-      const ball = this.physics.add.sprite(spawnX, spawnY, 'ball');
+      // Get scale for this ball (varies at higher levels)
+      const ballScale = this.getBallScaleForLevel();
+
+      const ball = this.physics.add.sprite(spawnX, spawnY, ballTexture);
 
       ball.setOrigin(0.5, 0.5);
       ball.setScale(ballScale);
+      ball.setAlpha(0); // Start invisible for spawn animation
       
-      // Make hit area larger than visual for easier touch
+      // Make hit area much larger than visual for easier touch (especially near edges)
       ball.setInteractive({
-        hitArea: new Phaser.Geom.Circle(0, 0, ball.width * 0.8),
+        hitArea: new Phaser.Geom.Circle(0, 0, ball.width * 1.2),
         hitAreaCallback: Phaser.Geom.Circle.Contains,
         useHandCursor: true
       });
       ball.on('pointerdown', () => this.killBall(ball));
 
-      // Increase ball speed per level
-      const lvlBallSpeed = BALL_SPEED + this.level * 10;
-      const randomFactor = Math.floor(Math.random() * 10) + 2;
+      // Calculate ball speed with level multiplier
+      const baseSpeed = BALL_SPEED * speedMultiplier;
+      const randomFactor = Math.floor(Math.random() * 20) + 5;
 
-      // Random velocity direction
-      const velX = (Math.random() < 0.5 ? -1 : 1) * (lvlBallSpeed + Math.random() * randomFactor);
-      const velY = (Math.random() < 0.5 ? -1 : 1) * (lvlBallSpeed + Math.random() * randomFactor);
+      // Random velocity direction - ensure balls don't all go same direction
+      const angle = Math.random() * Math.PI * 2; // Random angle 0-360 degrees
+      const speed = baseSpeed + Math.random() * randomFactor;
+      const velX = Math.cos(angle) * speed;
+      const velY = Math.sin(angle) * speed;
 
       ball.setVelocity(velX, velY);
 
@@ -310,17 +433,23 @@ export default class GameScene extends Phaser.Scene {
       ball.setAngle(90 + (Math.atan2(velY, velX) * 180) / Math.PI);
       ball.setCollideWorldBounds(true);
 
-      if (this.level > 0) {
-        ball.setBounce(0.7 + Math.random() * 0.2, 0.7 + Math.random() * 0.2);
-      }
+      // Always add bounce to prevent balls getting stuck in corners
+      ball.setBounce(0.8 + Math.random() * 0.2, 0.8 + Math.random() * 0.2);
 
       (ball.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
 
+      // Spawn animation - fade in with slight delay per ball
+      this.tweens.add({
+        targets: ball,
+        alpha: 1,
+        scale: ballScale,
+        duration: 200,
+        delay: i * 50, // Stagger spawn
+        ease: 'Back.easeOut'
+      });
+
       this.balls[i] = ball;
     }
-
-    this.levelLabel.setText('Level ' + (this.level + 1));
-    this.scoreText.setText('Score: ' + this.score);
   }
 
   private updateTimer(): void {
