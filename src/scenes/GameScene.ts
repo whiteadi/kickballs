@@ -221,7 +221,28 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
+  private getExplosionTintForLevel(): number {
+    // Different explosion colors per level to match ball types
+    switch (this.level) {
+      case 0:
+      case 1:
+        return 0xff6600; // Orange/red for black balls
+      case 2:
+      case 3:
+        return 0x4488ff; // Blue for shiny balls
+      case 4:
+        return 0xaaaaaa; // Silver/gray for metal balls
+      case 5:
+        return 0x00ff88; // Green/cyan for pang balls
+      default:
+        return 0xff6600;
+    }
+  }
+
   private killBall(ball: Phaser.Physics.Arcade.Sprite): void {
+    // Get explosion tint for current level
+    const explosionTint = this.getExplosionTintForLevel();
+
     // Get explosion from pool
     const explosion = this.explosions.getFirstDead(false) as Phaser.GameObjects.Sprite;
     if (explosion) {
@@ -230,17 +251,20 @@ export default class GameScene extends Phaser.Scene {
       explosion.setActive(true);
       explosion.setAlpha(1);
       explosion.setScale(1.5); // Make explosion bigger
+      explosion.setTint(explosionTint); // Apply level-specific color
       explosion.play('explode');
       
       // Reset explosion when animation completes
       explosion.once('animationcomplete', () => {
         explosion.setVisible(false);
         explosion.setActive(false);
+        explosion.clearTint(); // Reset tint for next use
       });
     } else {
       // No explosion available in pool, create a temporary one
       const tempExplosion = this.add.sprite(ball.x, ball.y, 'explosion');
       tempExplosion.setScale(1.5);
+      tempExplosion.setTint(explosionTint); // Apply level-specific color
       tempExplosion.play('explode');
       tempExplosion.once('animationcomplete', () => {
         tempExplosion.destroy();
