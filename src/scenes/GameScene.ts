@@ -4,6 +4,9 @@ import { BALL_SPEED, LEVELS, TIME_INTERVALS, SPEED_MULTIPLIERS } from '../utils/
 // Ball types for special balls
 type BallType = 'normal' | 'golden' | 'bomb';
 
+// Power-up types
+type PowerUpType = 'timeFreeze' | 'bomb' | 'scoreBoost';
+
 export default class GameScene extends Phaser.Scene {
   // Game state
   private level: number = 0;
@@ -17,6 +20,13 @@ export default class GameScene extends Phaser.Scene {
   private comboCount: number = 0;
   private lastKillTime: number = 0;
   private comboTimeout: number = 1500; // ms to maintain combo
+
+  // Power-up system
+  private powerUps: Phaser.GameObjects.Sprite[] = [];
+  private scoreBoostActive: boolean = false;
+  private scoreBoostEndTime: number = 0;
+  private timeFreezeActive: boolean = false;
+  private powerUpSpawnTimer?: Phaser.Time.TimerEvent;
 
   // Timer state
   private startTime: number = 0;
@@ -317,6 +327,11 @@ export default class GameScene extends Phaser.Scene {
       // Golden ball gives 5x base points!
       if (ballType === 'golden') {
         basePoints *= 5;
+      }
+      
+      // Score boost power-up doubles points!
+      if (this.scoreBoostActive) {
+        basePoints *= 2;
       }
       
       const comboMultiplier = Math.min(this.comboCount, 10); // Cap at 10x
@@ -658,6 +673,9 @@ export default class GameScene extends Phaser.Scene {
 
       this.balls[i] = ball;
     }
+
+    // Start power-up spawning for this level
+    this.startPowerUpSpawning();
   }
 
   private updateTimer(): void {
@@ -681,6 +699,9 @@ export default class GameScene extends Phaser.Scene {
 
   private youLost(): void {
     const { width } = this.scale;
+
+    // Stop power-up spawning
+    this.stopPowerUpSpawning();
 
     this.scoreText.setX(width / 2 - 200);
     this.scoreText.setColor('#FF0000');
@@ -725,6 +746,11 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private restart(): void {
+    // Stop power-up spawning and clean up
+    this.stopPowerUpSpawning();
+    this.scoreBoostActive = false;
+    this.timeFreezeActive = false;
+
     // Handle soundtrack
     if (!this.soundEnabled) {
       if (this.soundtrack.isPlaying) {
@@ -765,5 +791,254 @@ export default class GameScene extends Phaser.Scene {
 
   private shakeCamera(intensity: number, duration: number): void {
     this.cameras.main.shake(duration * 3, intensity / 100);
+  }
+
+  // ==================== POWER-UP SYSTEM ====================
+
+  private startPowerUpSpawning(): void {
+    // Only spawn power-ups from level 2+
+    if (this.level < 2) return;
+
+    // Schedule first power-up spawn
+    this.schedulePowerUpSpawn();
+  }
+
+  private schedulePowerUpSpawn(): void {
+    // Random delay between 5-10 seconds
+    const delay = 5000 + Math.random() * 5000;
+    
+    this.powerUpSpawnTimer = this.time.delayedCall(delay, () => {
+      if (!this.lost && this.balls.length > 0) {
+        this.spawnPowerUp();
+        // Schedule next spawn
+        this.schedulePowerUpSpawn();
+      }
+    });
+  }
+
+  private stopPowerUpSpawning(): void {
+    if (this.powerUpSpawnTimer) {
+      this.powerUpSpawnTimer.destroy();
+      this.powerUpSpawnTimer = undefined;
+    }
+    // Clean up existing power-ups
+    this.powerUps.forEach(p => p.destroy());
+    this.powerUps = [];
+  }
+
+  private spawnPowerUp(): void {
+    const { width, height } = this.scale;
+    
+    // Random position (avoid edges)
+    const x = 80 + Math.random() * (width - 160);
+    const y = 100 + Math.random() * (height - 250);
+
+    // Random power-up type
+    const types: PowerUpType[] = ['timeFreeze', 'bomb', 'scoreBoost'];
+    const type = types[Math.floor(Math.random() * types.length)];
+
+    // Create power-up sprite (using mushroom as base)
+    const powerUp = this.add.sprite(x, y, 'mushroom');
+    powerUp.setData('powerUpType', type);
+    powerUp.setScale(1.2);
+    powerUp.setAlpha(0);
+
+    // Apply tint based on type
+    switch (type) {
+      case 'timeFreeze':
+        powerUp.setTint(0x00ffff); // Cyan
+        break;
+      case 'bomb':
+        powerUp.setTint(0xff4444); // Red
+        break;
+      case 'scoreBoost':
+        powerUp.setTint(0xffd700); // Gold
+        break;
+    }
+
+    // Make interactive
+    powerUp.setInteractive({ useHandCursor: true });
+    powerUp.on('pointerdown', () => this.collectPowerUp(powerUp));
+
+    // Add label
+    const labelText = type === 'timeFreeze' ? '⏱️' : type === 'bomb' ? '💥' : '⭐';
+    const label = this.add.text(x, y - 25, labelText, {
+      fontSize: '24px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    label.setOrigin(0.5, 0.5);
+    powerUp.setData('label', label);
+
+    // Spawn animation
+    this.tweens.add({
+      targets: [powerUp, label],
+      alpha: 1,
+      scale: { from: 0.5, to: 1.2 },
+      duration: 300,
+      ease: 'Back.easeOut'
+    });
+
+    // Floating animation
+    this.tweens.add({
+      targets: [powerUp, label],
+      y: y - 10,
+      duration: 1000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    // Auto-destroy after 8 seconds if not collected
+    this.time.delayedCall(8000, () => {
+      if (powerUp.active) {
+        this.tweens.add({
+          targets: [powerUp, label],
+          alpha: 0,
+          scale: 0.3,
+          duration: 300,
+          onComplete: () => {
+            label.destroy();
+            powerUp.destroy();
+            this.powerUps = this.powerUps.filter(p => p !== powerUp);
+          }
+        });
+      }
+    });
+
+    this.powerUps.push(powerUp);
+  }
+
+  private collectPowerUp(powerUp: Phaser.GameObjects.Sprite): void {
+    const type = powerUp.getData('powerUpType') as PowerUpType;
+    const label = powerUp.getData('label') as Phaser.GameObjects.Text;
+    const x = powerUp.x;
+    const y = powerUp.y;
+
+    // Remove from array
+    this.powerUps = this.powerUps.filter(p => p !== powerUp);
+
+    // Destroy sprite and label
+    label.destroy();
+    powerUp.destroy();
+
+    // Apply effect
+    switch (type) {
+      case 'timeFreeze':
+        this.activateTimeFreeze();
+        this.showPowerUpText(x, y, '⏱️ TIME FREEZE!', '#00ffff');
+        break;
+      case 'bomb':
+        this.activateBombPowerUp();
+        this.showPowerUpText(x, y, '💥 BOOM!', '#ff4444');
+        break;
+      case 'scoreBoost':
+        this.activateScoreBoost();
+        this.showPowerUpText(x, y, '⭐ 2X SCORE!', '#ffd700');
+        break;
+    }
+
+    if (this.soundEnabled) {
+      this.boom.play();
+    }
+  }
+
+  private showPowerUpText(x: number, y: number, text: string, color: string): void {
+    const powerUpText = this.add.text(x, y, text, {
+      fontSize: '32px',
+      color: color,
+      fontFamily: 'Arial',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4
+    });
+    powerUpText.setOrigin(0.5, 0.5);
+
+    this.tweens.add({
+      targets: powerUpText,
+      y: y - 80,
+      alpha: 0,
+      scale: 1.5,
+      duration: 1200,
+      ease: 'Power2',
+      onComplete: () => powerUpText.destroy()
+    });
+  }
+
+  private activateTimeFreeze(): void {
+    this.timeFreezeActive = true;
+
+    // Freeze all balls
+    this.balls.forEach(ball => {
+      if (ball && ball.active && ball.body) {
+        const body = ball.body as Phaser.Physics.Arcade.Body;
+        ball.setData('savedVelocity', { x: body.velocity.x, y: body.velocity.y });
+        body.setVelocity(0, 0);
+        ball.setTint(0x88ffff); // Cyan tint to show frozen
+      }
+    });
+
+    // Flash screen
+    this.cameras.main.flash(200, 0, 255, 255);
+
+    // Unfreeze after 3 seconds
+    this.time.delayedCall(3000, () => {
+      this.timeFreezeActive = false;
+      this.balls.forEach(ball => {
+        if (ball && ball.active && ball.body) {
+          const saved = ball.getData('savedVelocity');
+          if (saved) {
+            (ball.body as Phaser.Physics.Arcade.Body).setVelocity(saved.x, saved.y);
+          }
+          // Restore original tint based on ball type
+          const ballType = ball.getData('ballType') as BallType;
+          if (ballType === 'golden') {
+            ball.setTint(0xffd700);
+          } else if (ballType === 'bomb') {
+            ball.setTint(0xff4444);
+          } else {
+            ball.clearTint();
+          }
+        }
+      });
+    });
+  }
+
+  private activateBombPowerUp(): void {
+    // Destroy 3 random balls
+    const activeBalls = this.balls.filter(b => b && b.active);
+    const toDestroy = Math.min(3, activeBalls.length);
+
+    for (let i = 0; i < toDestroy; i++) {
+      const randomIndex = Math.floor(Math.random() * activeBalls.length);
+      const ball = activeBalls[randomIndex];
+      if (ball && ball.active) {
+        this.time.delayedCall(i * 150, () => {
+          if (ball.active) {
+            this.killBall(ball, true);
+          }
+        });
+        activeBalls.splice(randomIndex, 1);
+      }
+    }
+
+    this.shakeCamera(15, 200);
+  }
+
+  private activateScoreBoost(): void {
+    this.scoreBoostActive = true;
+    this.scoreBoostEndTime = Date.now() + 10000; // 10 seconds
+
+    // Visual indicator - make score text gold
+    this.scoreText.setColor('#ffd700');
+    this.scoreText.setFontSize('28px');
+
+    // End boost after 10 seconds
+    this.time.delayedCall(10000, () => {
+      this.scoreBoostActive = false;
+      this.scoreText.setColor('#000000');
+      this.scoreText.setFontSize('24px');
+    });
   }
 }

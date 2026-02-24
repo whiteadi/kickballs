@@ -46,7 +46,7 @@ Consider adjusting based on new ball counts.
   - Level 3-4: Slight variation (0.9x-1.2x)
   - Level 5-6: Mix of sizes (0.8x-1.4x)
 
-### Phase 3: Gameplay Mechanics (Priority: MEDIUM) 🔄 IN PROGRESS
+### Phase 3: Gameplay Mechanics (Priority: MEDIUM) ✅ COMPLETED
 - [x] **Combo System** ✅ COMPLETED
   - 1.5 second window to maintain combo
   - Up to 10x score multiplier
@@ -56,10 +56,12 @@ Consider adjusting based on new ball counts.
   - ⭐ Golden ball: 5x points, gold tint, gold explosion, "⭐ GOLDEN! ⭐" text
   - 💥 Bomb ball: Destroys nearby balls (150px radius), red tint, big explosion, chain reactions
   - Spawn rates: 10% golden (level 2+), 8% bomb (level 3+)
-- [ ] **Power-ups** (spawn randomly)
-  - ⏱️ Time Freeze: Pause all balls for 3 seconds
-  - 💥 Bomb: Destroy 3 random balls
-  - ⭐ Score Boost: 2x points for 10 seconds
+- [x] **Power-ups** ✅ COMPLETED
+  - ⏱️ Time Freeze: Pause all balls for 3 seconds, cyan tint, screen flash
+  - 💥 Bomb: Destroy 3 random balls with staggered explosions
+  - ⭐ Score Boost: 2x points for 10 seconds, gold score text indicator
+  - Spawn every 5-10 seconds from level 2+, auto-despawn after 8 seconds
+  - Floating animation with emoji labels (⏱️💥⭐)
 
 ### Phase 4: Advanced Features (Priority: LOW)
 - [ ] **Boss Levels** (every 3 levels)
