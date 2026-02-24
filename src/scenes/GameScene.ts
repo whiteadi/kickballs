@@ -1,8 +1,6 @@
 import Phaser from 'phaser';
 import { BALL_SPEED, LEVELS, TIME_INTERVALS, SPEED_MULTIPLIERS } from '../utils/constants';
 
-declare const __DEV__: boolean;
-
 export default class GameScene extends Phaser.Scene {
   // Game state
   private level: number = 0;
@@ -11,6 +9,11 @@ export default class GameScene extends Phaser.Scene {
   private lost: boolean = false;
   private soundEnabled: boolean = true;
   private levelTransitioning: boolean = false; // Prevent multiple level transitions
+
+  // Combo system
+  private comboCount: number = 0;
+  private lastKillTime: number = 0;
+  private comboTimeout: number = 1500; // ms to maintain combo
 
   // Timer state
   private startTime: number = 0;
@@ -240,13 +243,16 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private killBall(ball: Phaser.Physics.Arcade.Sprite): void {
+    const ballX = ball.x;
+    const ballY = ball.y;
+
     // Get explosion tint for current level
     const explosionTint = this.getExplosionTintForLevel();
 
     // Get explosion from pool
     const explosion = this.explosions.getFirstDead(false) as Phaser.GameObjects.Sprite;
     if (explosion) {
-      explosion.setPosition(ball.x, ball.y);
+      explosion.setPosition(ballX, ballY);
       explosion.setVisible(true);
       explosion.setActive(true);
       explosion.setAlpha(1);
@@ -262,7 +268,7 @@ export default class GameScene extends Phaser.Scene {
       });
     } else {
       // No explosion available in pool, create a temporary one
-      const tempExplosion = this.add.sprite(ball.x, ball.y, 'explosion');
+      const tempExplosion = this.add.sprite(ballX, ballY, 'explosion');
       tempExplosion.setScale(1.5);
       tempExplosion.setTint(explosionTint); // Apply level-specific color
       tempExplosion.play('explode');
@@ -278,11 +284,66 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (!this.lost) {
-      this.score += 10 + this.level * 10;
+      // Combo system
+      const now = Date.now();
+      if (now - this.lastKillTime < this.comboTimeout) {
+        this.comboCount++;
+      } else {
+        this.comboCount = 1;
+      }
+      this.lastKillTime = now;
+
+      // Calculate score with combo multiplier
+      const basePoints = 10 + this.level * 10;
+      const comboMultiplier = Math.min(this.comboCount, 10); // Cap at 10x
+      const points = basePoints * comboMultiplier;
+      
+      this.score += points;
       this.scoreText.setText('Score: ' + this.score);
+
+      // Show combo feedback if combo > 1
+      if (this.comboCount > 1) {
+        this.showComboText(ballX, ballY, this.comboCount, points);
+      }
     }
 
     this.shakeCamera(4, 80);
+  }
+
+  private showComboText(x: number, y: number, combo: number, points: number): void {
+    // Get color based on combo level
+    let color = '#ffff00'; // Yellow for 2x
+    if (combo >= 5) {
+      color = '#ff00ff'; // Magenta for 5x+
+    } else if (combo >= 3) {
+      color = '#00ffff'; // Cyan for 3x+
+    }
+
+    // Create combo text
+    const comboText = this.add.text(x, y - 30, `${combo}x COMBO!\n+${points}`, {
+      fontSize: '24px',
+      color: color,
+      fontFamily: 'Arial',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+      align: 'center'
+    });
+    comboText.setOrigin(0.5, 0.5);
+    comboText.setAlpha(1);
+
+    // Animate combo text floating up and fading
+    this.tweens.add({
+      targets: comboText,
+      y: y - 80,
+      alpha: 0,
+      scale: 1.3,
+      duration: 800,
+      ease: 'Power2',
+      onComplete: () => {
+        comboText.destroy();
+      }
+    });
   }
 
   private nextLevel(): void {
@@ -404,6 +465,10 @@ export default class GameScene extends Phaser.Scene {
     // Clear the balls array and reset transition flag
     this.balls = [];
     this.levelTransitioning = false;
+    
+    // Reset combo for new level
+    this.comboCount = 0;
+    this.lastKillTime = 0;
 
     // Get ball texture for this level
     const ballTexture = this.getBallTextureForLevel();
