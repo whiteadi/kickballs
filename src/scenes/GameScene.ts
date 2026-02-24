@@ -10,6 +10,7 @@ export default class GameScene extends Phaser.Scene {
   private score: number = 0;
   private lost: boolean = false;
   private soundEnabled: boolean = true;
+  private levelTransitioning: boolean = false; // Prevent multiple level transitions
 
   // Timer state
   private startTime: number = 0;
@@ -44,6 +45,7 @@ export default class GameScene extends Phaser.Scene {
     this.lost = false;
     this.soundEnabled = true;
     this.startTime = 0;
+    this.levelTransitioning = false;
   }
 
   create(): void {
@@ -171,10 +173,11 @@ export default class GameScene extends Phaser.Scene {
         }
       }
 
-      if (allBallsKilled) {
+      if (allBallsKilled && !this.levelTransitioning) {
         if (this.level < 5) {
           this.level++;
           if (!this.lost) {
+            this.levelTransitioning = true; // Prevent multiple transitions
             this.nextLevel();
           }
         } else {
@@ -357,6 +360,10 @@ export default class GameScene extends Phaser.Scene {
 
   private spawnBalls(): void {
     const { width, height } = this.scale;
+
+    // Clear the balls array and reset transition flag
+    this.balls = [];
+    this.levelTransitioning = false;
 
     // Get ball texture for this level
     const ballTexture = this.getBallTextureForLevel();
