@@ -228,7 +228,23 @@ export default class GameScene extends Phaser.Scene {
       explosion.setPosition(ball.x, ball.y);
       explosion.setVisible(true);
       explosion.setActive(true);
+      explosion.setAlpha(1);
+      explosion.setScale(1.5); // Make explosion bigger
       explosion.play('explode');
+      
+      // Reset explosion when animation completes
+      explosion.once('animationcomplete', () => {
+        explosion.setVisible(false);
+        explosion.setActive(false);
+      });
+    } else {
+      // No explosion available in pool, create a temporary one
+      const tempExplosion = this.add.sprite(ball.x, ball.y, 'explosion');
+      tempExplosion.setScale(1.5);
+      tempExplosion.play('explode');
+      tempExplosion.once('animationcomplete', () => {
+        tempExplosion.destroy();
+      });
     }
 
     ball.destroy();
