@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
-import { BALL_SPEED, LEVELS, TIME_INTERVALS, SPEED_MULTIPLIERS } from '../utils/constants';
+import { BALL_SPEED, LEVELS, TIME_INTERVALS, SPEED_MULTIPLIERS, BOSS_LEVELS } from '../utils/constants';
 
 // Ball types for special balls
-type BallType = 'normal' | 'golden' | 'bomb';
+type BallType = 'normal' | 'golden' | 'bomb' | 'boss' | 'minion';
 
 // Power-up types
 type PowerUpType = 'timeFreeze' | 'bomb' | 'scoreBoost';
@@ -11,6 +11,14 @@ export default class GameScene extends Phaser.Scene {
   // Game state
   private level: number = 0;
   private balls: Phaser.Physics.Arcade.Sprite[] = [];
+  
+  // Boss state
+  private isBossLevel: boolean = false;
+  private bossBall?: Phaser.Physics.Arcade.Sprite;
+  private bossHealth: number = 0;
+  private bossMaxHealth: number = 5;
+  private bossHealthBar?: Phaser.GameObjects.Graphics;
+  private bossHealthBarBg?: Phaser.GameObjects.Graphics;
   private score: number = 0;
   private lost: boolean = false;
   private soundEnabled: boolean = true;
@@ -24,8 +32,7 @@ export default class GameScene extends Phaser.Scene {
   // Power-up system
   private powerUps: Phaser.GameObjects.Sprite[] = [];
   private scoreBoostActive: boolean = false;
-  private scoreBoostEndTime: number = 0;
-  private timeFreezeActive: boolean = false;
+  private timeFreezeActive: boolean = false; // Used to prevent double-freeze
   private powerUpSpawnTimer?: Phaser.Time.TimerEvent;
 
   // Timer state
@@ -36,6 +43,11 @@ export default class GameScene extends Phaser.Scene {
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
   private explosions!: Phaser.GameObjects.Group;
   private logo!: Phaser.GameObjects.Image;
+  
+  // Particle emitters
+  private popParticles?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private sparkleParticles?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private comboParticles?: Phaser.GameObjects.Particles.ParticleEmitter;
 
   // UI elements
   private scoreText!: Phaser.GameObjects.Text;
@@ -143,6 +155,73 @@ export default class GameScene extends Phaser.Scene {
     this.logo.setOrigin(0.5, 0.5);
     this.logo.setInteractive();
     this.logo.on('pointerup', this.removeLogo, this);
+
+    // Create particle emitters
+    this.createParticleEmitters();
+  }
+
+  private createParticleEmitters(): void {
+    // Pop particles - burst when ball is destroyed
+    this.popParticles = this.add.particles(0, 0, 'ball', {
+      speed: { min: 100, max: 200 },
+      scale: { start: 0.3, end: 0 },
+      lifespan: 400,
+      gravityY: 200,
+      emitting: false
+    });
+
+    // Sparkle particles - for golden balls and combos
+    this.sparkleParticles = this.add.particles(0, 0, 'ball_shiny', {
+      speed: { min: 50, max: 150 },
+      scale: { start: 0.2, end: 0 },
+      lifespan: 600,
+      alpha: { start: 1, end: 0 },
+      tint: 0xffd700,
+      emitting: false
+    });
+
+    // Combo particles - escalating effect
+    this.comboParticles = this.add.particles(0, 0, 'ball_shiny', {
+      speed: { min: 80, max: 180 },
+      scale: { start: 0.25, end: 0 },
+      lifespan: 500,
+      alpha: { start: 1, end: 0 },
+      emitting: false
+    });
+  }
+
+  private emitPopParticles(x: number, y: number, color: number, count: number = 8): void {
+    if (!this.popParticles) return;
+    
+    this.popParticles.setPosition(x, y);
+    this.popParticles.setParticleTint(color);
+    this.popParticles.explode(count);
+  }
+
+  private emitSparkleParticles(x: number, y: number, count: number = 12): void {
+    if (!this.sparkleParticles) return;
+    
+    this.sparkleParticles.setPosition(x, y);
+    this.sparkleParticles.explode(count);
+  }
+
+  private emitComboParticles(x: number, y: number, comboLevel: number): void {
+    if (!this.comboParticles) return;
+    
+    // More particles for higher combos
+    const count = Math.min(comboLevel * 3, 20);
+    
+    // Color based on combo level
+    let color = 0xffff00; // Yellow
+    if (comboLevel >= 5) {
+      color = 0xff00ff; // Magenta
+    } else if (comboLevel >= 3) {
+      color = 0x00ffff; // Cyan
+    }
+    
+    this.comboParticles.setPosition(x, y);
+    this.comboParticles.setParticleTint(color);
+    this.comboParticles.explode(count);
   }
 
   update(): void {
@@ -190,7 +269,7 @@ export default class GameScene extends Phaser.Scene {
       }
 
       if (allBallsKilled && !this.levelTransitioning) {
-        if (this.level < 5) {
+        if (this.level < 11) {
           this.level++;
           if (!this.lost) {
             this.levelTransitioning = true; // Prevent multiple transitions
@@ -239,6 +318,7 @@ export default class GameScene extends Phaser.Scene {
 
   private getExplosionTintForLevel(): number {
     // Different explosion colors per level to match ball types
+    // 12 levels with cycling themes
     switch (this.level) {
       case 0:
       case 1:
@@ -247,9 +327,17 @@ export default class GameScene extends Phaser.Scene {
       case 3:
         return 0x4488ff; // Blue for shiny balls
       case 4:
-        return 0xaaaaaa; // Silver/gray for metal balls
       case 5:
+        return 0xaaaaaa; // Silver/gray for metal balls
+      case 6:
+      case 7:
         return 0x00ff88; // Green/cyan for pang balls
+      case 8:
+      case 9:
+        return 0xff44ff; // Magenta for mixed balls
+      case 10:
+      case 11:
+        return 0xffaa00; // Gold/orange for final levels
       default:
         return 0xff6600;
     }
@@ -300,10 +388,19 @@ export default class GameScene extends Phaser.Scene {
       });
     }
 
+    // Emit pop particles
+    this.emitPopParticles(ballX, ballY, explosionTint, ballType === 'bomb' ? 15 : 8);
+    
+    // Extra sparkles for golden balls
+    if (ballType === 'golden') {
+      this.emitSparkleParticles(ballX, ballY, 15);
+    }
+
     ball.destroy();
 
     if (this.soundEnabled) {
-      this.boom.play();
+      // Play different sound based on ball type
+      this.playHitSound(ballType);
     }
 
     // Handle bomb ball effect - destroy nearby balls
@@ -400,6 +497,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private showComboText(x: number, y: number, combo: number, points: number): void {
+    // Emit combo particles
+    this.emitComboParticles(x, y, combo);
+
     // Get color based on combo level
     let color = '#ffff00'; // Yellow for 2x
     if (combo >= 5) {
@@ -447,19 +547,32 @@ export default class GameScene extends Phaser.Scene {
 
   private getBackgroundTintForLevel(): number {
     // Different background tints per level for visual variety
+    // 12 levels with cycling themes
     switch (this.level) {
       case 0:
-        return 0xffffff; // Normal
+        return 0xffffff; // Normal - Tutorial
       case 1:
         return 0xe8f4e8; // Slight green tint
       case 2:
         return 0xe8e8f4; // Slight blue tint
       case 3:
-        return 0xf4e8e8; // Slight red tint
+        return 0xf4e8e8; // Slight red tint - Boss 1
       case 4:
         return 0xf4f0e0; // Slight yellow/sepia tint
       case 5:
         return 0xe0e0e8; // Slight purple/dark tint
+      case 6:
+        return 0xe8f4f4; // Slight cyan tint
+      case 7:
+        return 0xf4e0e0; // Deeper red tint - Boss 2
+      case 8:
+        return 0xf0e8f4; // Slight magenta tint
+      case 9:
+        return 0xe8f0e8; // Fresh green tint
+      case 10:
+        return 0xf4f4e0; // Golden tint
+      case 11:
+        return 0xe0d8d0; // Dark/epic tint - Final Boss
       default:
         return 0xffffff;
     }
@@ -517,17 +630,32 @@ export default class GameScene extends Phaser.Scene {
 
   private getBallTextureForLevel(): string {
     // Different ball types per level for visual variety
+    // 12 levels with cycling ball types
     switch (this.level) {
       case 0:
       case 1:
         return 'ball'; // Black balls for tutorial levels
       case 2:
       case 3:
-        return 'ball_shiny'; // Shiny balls for medium levels
+        return 'ball_shiny'; // Shiny balls for early-mid levels
       case 4:
-        return 'ball_metal'; // Metal balls for hard level
       case 5:
-        return 'ball_pang'; // Pang balls for expert level
+        return 'ball_metal'; // Metal balls for mid levels
+      case 6:
+      case 7:
+        return 'ball_pang'; // Pang balls for mid-late levels
+      case 8:
+      case 9: {
+        // Mixed - randomly choose between all types
+        const mixedTypes = ['ball', 'ball_shiny', 'ball_metal', 'ball_pang'];
+        return mixedTypes[Math.floor(Math.random() * mixedTypes.length)];
+      }
+      case 10:
+      case 11: {
+        // Final levels - also mixed but with preference for shiny/metal
+        const finalTypes = ['ball_shiny', 'ball_metal', 'ball_shiny', 'ball_metal', 'ball_pang'];
+        return finalTypes[Math.floor(Math.random() * finalTypes.length)];
+      }
       default:
         return 'ball';
     }
@@ -569,6 +697,15 @@ export default class GameScene extends Phaser.Scene {
     // Reset combo for new level
     this.comboCount = 0;
     this.lastKillTime = 0;
+
+    // Check if this is a boss level
+    this.isBossLevel = BOSS_LEVELS.includes(this.level);
+    
+    // If boss level, spawn boss instead of regular balls
+    if (this.isBossLevel) {
+      this.spawnBoss();
+      return;
+    }
 
     // Get ball texture for this level
     const ballTexture = this.getBallTextureForLevel();
@@ -793,6 +930,46 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.shake(duration * 3, intensity / 100);
   }
 
+  // ==================== SOUND SYSTEM ====================
+
+  private playHitSound(ballType: BallType): void {
+    // Different pitch/rate based on ball type and combo
+    let rate = 1.0;
+    let volume = 0.2;
+
+    switch (ballType) {
+      case 'golden':
+        rate = 1.5; // Higher pitch for golden
+        volume = 0.3;
+        break;
+      case 'bomb':
+        rate = 0.7; // Lower pitch for bomb
+        volume = 0.35;
+        break;
+      case 'boss':
+        rate = 0.5; // Very low for boss
+        volume = 0.4;
+        break;
+      case 'minion':
+        rate = 1.3; // Slightly higher for minions
+        volume = 0.15;
+        break;
+      default:
+        // Vary pitch based on combo for normal balls
+        rate = 1.0 + (this.comboCount - 1) * 0.1; // Escalating pitch
+        rate = Math.min(rate, 2.0); // Cap at 2x
+        break;
+    }
+
+    // Play with modified rate
+    this.sound.play('boom', { volume, rate });
+  }
+
+  private playPowerUpSound(): void {
+    // Higher pitch "whoosh" effect for power-ups
+    this.sound.play('boom', { volume: 0.25, rate: 1.8 });
+  }
+
   // ==================== POWER-UP SYSTEM ====================
 
   private startPowerUpSpawning(): void {
@@ -940,7 +1117,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (this.soundEnabled) {
-      this.boom.play();
+      this.playPowerUpSound();
     }
   }
 
@@ -967,6 +1144,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private activateTimeFreeze(): void {
+    // Prevent double-freeze
+    if (this.timeFreezeActive) return;
+    
     this.timeFreezeActive = true;
 
     // Freeze all balls
@@ -1028,7 +1208,6 @@ export default class GameScene extends Phaser.Scene {
 
   private activateScoreBoost(): void {
     this.scoreBoostActive = true;
-    this.scoreBoostEndTime = Date.now() + 10000; // 10 seconds
 
     // Visual indicator - make score text gold
     this.scoreText.setColor('#ffd700');
@@ -1040,5 +1219,313 @@ export default class GameScene extends Phaser.Scene {
       this.scoreText.setColor('#000000');
       this.scoreText.setFontSize('24px');
     });
+  }
+
+  // ==================== BOSS SYSTEM ====================
+
+  private spawnBoss(): void {
+    const { width, height } = this.scale;
+
+    // Determine boss tier based on level
+    const bossIndex = BOSS_LEVELS.indexOf(this.level);
+    this.bossMaxHealth = 5 + bossIndex * 2; // 5, 7, 9 health for bosses 1, 2, 3
+    this.bossHealth = this.bossMaxHealth;
+
+    // Show boss warning
+    this.showBossWarning(() => {
+      // Create boss ball
+      const bossScale = 3.0 + bossIndex * 0.5; // Bigger for later bosses
+      this.bossBall = this.physics.add.sprite(width / 2, -100, 'ball_metal');
+      this.bossBall.setData('ballType', 'boss');
+      this.bossBall.setOrigin(0.5, 0.5);
+      this.bossBall.setScale(bossScale);
+      this.bossBall.setTint(0xff0000); // Red tint for boss
+
+      // Make interactive
+      this.bossBall.setInteractive({
+        hitArea: new Phaser.Geom.Circle(0, 0, this.bossBall.width * 0.8),
+        hitAreaCallback: Phaser.Geom.Circle.Contains,
+        useHandCursor: true
+      });
+      this.bossBall.on('pointerdown', () => this.hitBoss());
+
+      // Physics setup
+      this.bossBall.setCollideWorldBounds(true);
+      this.bossBall.setBounce(1, 1);
+      (this.bossBall.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+
+      // Dramatic entrance animation
+      this.tweens.add({
+        targets: this.bossBall,
+        y: height / 3,
+        duration: 1500,
+        ease: 'Bounce.easeOut',
+        onComplete: () => {
+          // Start boss movement
+          const speed = 100 + bossIndex * 30;
+          this.bossBall!.setVelocity(
+            (Math.random() - 0.5) * speed * 2,
+            (Math.random() - 0.5) * speed * 2
+          );
+        }
+      });
+
+      // Add boss to balls array for tracking
+      this.balls = [this.bossBall];
+
+      // Create health bar
+      this.createBossHealthBar();
+
+      // Screen shake for dramatic effect
+      this.shakeCamera(15, 300);
+
+      // Start power-up spawning
+      this.startPowerUpSpawning();
+    });
+  }
+
+  private showBossWarning(onComplete: () => void): void {
+    const { width, height } = this.scale;
+
+    // Flash screen red
+    this.cameras.main.flash(500, 255, 0, 0);
+
+    // Boss warning text
+    const bossIndex = BOSS_LEVELS.indexOf(this.level);
+    const bossNames = ['MINI BOSS', 'MEGA BOSS', 'FINAL BOSS'];
+    const bossName = bossNames[bossIndex] || 'BOSS';
+
+    const warningText = this.add.text(width / 2, height / 2, `⚠️ ${bossName}! ⚠️`, {
+      fontSize: '48px',
+      color: '#ff0000',
+      fontFamily: 'Arial',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 6
+    });
+    warningText.setOrigin(0.5, 0.5);
+    warningText.setAlpha(0);
+    warningText.setScale(0.5);
+
+    // Pulsing animation
+    this.tweens.add({
+      targets: warningText,
+      alpha: 1,
+      scale: 1.2,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        // Pulse effect
+        this.tweens.add({
+          targets: warningText,
+          scale: 1.0,
+          duration: 200,
+          yoyo: true,
+          repeat: 2,
+          onComplete: () => {
+            this.tweens.add({
+              targets: warningText,
+              alpha: 0,
+              y: height / 2 - 50,
+              duration: 300,
+              onComplete: () => {
+                warningText.destroy();
+                onComplete();
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+
+  private createBossHealthBar(): void {
+    const { width } = this.scale;
+    const barWidth = 200;
+    const barHeight = 20;
+    const barX = width / 2 - barWidth / 2;
+    const barY = 50;
+
+    // Background
+    this.bossHealthBarBg = this.add.graphics();
+    this.bossHealthBarBg.fillStyle(0x333333, 1);
+    this.bossHealthBarBg.fillRoundedRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4, 5);
+
+    // Health bar
+    this.bossHealthBar = this.add.graphics();
+    this.updateBossHealthBar();
+  }
+
+  private updateBossHealthBar(): void {
+    if (!this.bossHealthBar) return;
+
+    const { width } = this.scale;
+    const barWidth = 200;
+    const barHeight = 20;
+    const barX = width / 2 - barWidth / 2;
+    const barY = 50;
+
+    const healthPercent = this.bossHealth / this.bossMaxHealth;
+    const currentWidth = barWidth * healthPercent;
+
+    // Color based on health
+    let color = 0x00ff00; // Green
+    if (healthPercent <= 0.3) {
+      color = 0xff0000; // Red
+    } else if (healthPercent <= 0.6) {
+      color = 0xffff00; // Yellow
+    }
+
+    this.bossHealthBar.clear();
+    this.bossHealthBar.fillStyle(color, 1);
+    this.bossHealthBar.fillRoundedRect(barX, barY, currentWidth, barHeight, 3);
+  }
+
+  private hitBoss(): void {
+    if (!this.bossBall || !this.bossBall.active) return;
+
+    this.bossHealth--;
+    
+    // Flash boss white
+    this.bossBall.setTint(0xffffff);
+    this.time.delayedCall(100, () => {
+      if (this.bossBall && this.bossBall.active) {
+        this.bossBall.setTint(0xff0000);
+      }
+    });
+
+    // Update health bar
+    this.updateBossHealthBar();
+
+    // Show damage text
+    this.showSpecialBallText(
+      this.bossBall.x,
+      this.bossBall.y,
+      `💥 HIT! ${this.bossHealth}/${this.bossMaxHealth}`,
+      50 + this.level * 10,
+      '#ff4444'
+    );
+
+    // Screen shake
+    this.shakeCamera(8, 100);
+
+    // Play sound
+    if (this.soundEnabled) {
+      this.boom.play();
+    }
+
+    // Spawn minion balls when hit
+    this.spawnMinions(this.bossBall.x, this.bossBall.y, 2);
+
+    // Check if boss is defeated
+    if (this.bossHealth <= 0) {
+      this.defeatBoss();
+    } else {
+      // Boss gets faster when hit
+      const body = this.bossBall.body as Phaser.Physics.Arcade.Body;
+      const speedBoost = 1.1;
+      body.setVelocity(body.velocity.x * speedBoost, body.velocity.y * speedBoost);
+    }
+
+    // Add score
+    const points = 50 + this.level * 10;
+    this.score += points;
+    this.scoreText.setText('Score: ' + this.score);
+  }
+
+  private spawnMinions(x: number, y: number, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const minion = this.physics.add.sprite(x, y, 'ball');
+      minion.setData('ballType', 'minion');
+      minion.setOrigin(0.5, 0.5);
+      minion.setScale(1.0);
+      minion.setTint(0xff8888); // Light red tint
+
+      // Make interactive
+      minion.setInteractive({
+        hitArea: new Phaser.Geom.Circle(0, 0, minion.width * 1.2),
+        hitAreaCallback: Phaser.Geom.Circle.Contains,
+        useHandCursor: true
+      });
+      minion.on('pointerdown', () => this.killBall(minion));
+
+      // Random velocity
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 150 + Math.random() * 100;
+      minion.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+      minion.setCollideWorldBounds(true);
+      minion.setBounce(0.9, 0.9);
+      (minion.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+
+      // Spawn animation
+      minion.setAlpha(0);
+      minion.setScale(0.3);
+      this.tweens.add({
+        targets: minion,
+        alpha: 1,
+        scale: 1.0,
+        duration: 200,
+        ease: 'Back.easeOut'
+      });
+
+      this.balls.push(minion);
+    }
+  }
+
+  private defeatBoss(): void {
+    if (!this.bossBall) return;
+
+    const x = this.bossBall.x;
+    const y = this.bossBall.y;
+
+    // Big explosion
+    for (let i = 0; i < 5; i++) {
+      this.time.delayedCall(i * 100, () => {
+        const offsetX = (Math.random() - 0.5) * 100;
+        const offsetY = (Math.random() - 0.5) * 100;
+        const tempExplosion = this.add.sprite(x + offsetX, y + offsetY, 'explosion');
+        tempExplosion.setScale(2.5);
+        tempExplosion.setTint(0xff0000);
+        tempExplosion.play('explode');
+        tempExplosion.once('animationcomplete', () => tempExplosion.destroy());
+      });
+    }
+
+    // Destroy boss
+    this.bossBall.destroy();
+    this.bossBall = undefined;
+
+    // Clean up health bar
+    if (this.bossHealthBar) {
+      this.bossHealthBar.destroy();
+      this.bossHealthBar = undefined;
+    }
+    if (this.bossHealthBarBg) {
+      this.bossHealthBarBg.destroy();
+      this.bossHealthBarBg = undefined;
+    }
+
+    // Big score bonus
+    const bossIndex = BOSS_LEVELS.indexOf(this.level);
+    const bonusPoints = 500 + bossIndex * 250;
+    this.score += bonusPoints;
+    this.scoreText.setText('Score: ' + this.score);
+
+    // Show victory text
+    this.showSpecialBallText(x, y, '🏆 BOSS DEFEATED! 🏆', bonusPoints, '#ffd700');
+
+    // Big screen shake
+    this.shakeCamera(25, 500);
+
+    // Play sound
+    if (this.soundEnabled) {
+      this.boom.play();
+    }
+
+    // Remove boss from balls array
+    this.balls = this.balls.filter(b => b !== this.bossBall);
+
+    // Reset boss state
+    this.isBossLevel = false;
   }
 }

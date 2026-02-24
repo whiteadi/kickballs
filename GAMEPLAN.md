@@ -63,10 +63,33 @@ Consider adjusting based on new ball counts.
   - Spawn every 5-10 seconds from level 2+, auto-despawn after 8 seconds
   - Floating animation with emoji labels (⏱️💥⭐)
 
-### Phase 4: Advanced Features (Priority: LOW)
-- [ ] **Boss Levels** (every 3 levels)
-  - One giant ball that takes 5 hits
-  - Spawns mini-balls when hit
+### Phase 4: Advanced Features (Priority: LOW) 🔄 IN PROGRESS
+- [x] **Expanded to 12 Levels** ✅ COMPLETED
+  - Levels 1-2: Tutorial (4-6 balls, black balls)
+  - Levels 3-4: Early-mid (8-10 balls, shiny balls) - Boss at L4
+  - Levels 5-6: Mid (8-10 balls, metal balls)
+  - Levels 7-8: Mid-late (12-14 balls, pang balls) - Boss at L8
+  - Levels 9-10: Late (12-14 balls, mixed ball types)
+  - Levels 11-12: Final (16-18 balls, mixed) - Final Boss at L12
+  - Unique background tints for each level
+  - Progressive speed multipliers (1.0x → 1.6x)
+- [x] **Boss Levels** ✅ COMPLETED (at levels 4, 8, 12)
+  - 🔴 Giant red boss ball (3x-4x scale)
+  - ❤️ Health system: 5/7/9 HP for Mini/Mega/Final Boss
+  - 📊 Health bar UI with color changes (green→yellow→red)
+  - 👾 Spawns 2 minion balls on each hit
+  - ⚡ Boss speeds up when damaged
+  - 💥 Multi-explosion defeat animation
+  - 🏆 Bonus points: 500/750/1000 for defeating bosses
+  - ⚠️ Dramatic "BOSS WARNING" entrance animation
+- [x] **Polish: Particle Effects** ✅ COMPLETED
+  - 💥 Pop particles on ball destruction (colored by level)
+  - ✨ Sparkle particles for golden balls
+  - 🎯 Combo particles (escalating count, color-coded)
+- [x] **Polish: Sound Variety** ✅ COMPLETED
+  - 🔊 Different pitch for each ball type (golden=high, bomb=low, boss=very low)
+  - 📈 Combo escalating pitch (1.0x → 2.0x)
+  - 🎵 Power-up collect sound (high pitch whoosh)
 - [ ] **Endless Mode**
   - Survive as long as possible
   - Increasing difficulty over time
