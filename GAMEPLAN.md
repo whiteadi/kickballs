@@ -52,10 +52,10 @@ Consider adjusting based on new ball counts.
   - Up to 10x score multiplier
   - Color-coded floating text (yellow 2x → cyan 3x+ → magenta 5x+)
   - Points display: "3x COMBO! +90"
-- [ ] **Special Balls**
-  - Golden ball: 5x points
-  - Bomb ball: Destroys nearby balls
-  - Speed ball: Moves faster, worth more
+- [x] **Special Balls** ✅ COMPLETED
+  - ⭐ Golden ball: 5x points, gold tint, gold explosion, "⭐ GOLDEN! ⭐" text
+  - 💥 Bomb ball: Destroys nearby balls (150px radius), red tint, big explosion, chain reactions
+  - Spawn rates: 10% golden (level 2+), 8% bomb (level 3+)
 - [ ] **Power-ups** (spawn randomly)
   - ⏱️ Time Freeze: Pause all balls for 3 seconds
   - 💥 Bomb: Destroy 3 random balls

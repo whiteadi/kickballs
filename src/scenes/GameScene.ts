@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { BALL_SPEED, LEVELS, TIME_INTERVALS, SPEED_MULTIPLIERS } from '../utils/constants';
 
+// Ball types for special balls
+type BallType = 'normal' | 'golden' | 'bomb';
+
 export default class GameScene extends Phaser.Scene {
   // Game state
   private level: number = 0;
@@ -242,12 +245,22 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  private killBall(ball: Phaser.Physics.Arcade.Sprite): void {
+  private killBall(ball: Phaser.Physics.Arcade.Sprite, triggeredByBomb: boolean = false): void {
     const ballX = ball.x;
     const ballY = ball.y;
+    const ballType = ball.getData('ballType') as BallType || 'normal';
 
-    // Get explosion tint for current level
-    const explosionTint = this.getExplosionTintForLevel();
+    // Get explosion tint based on ball type
+    let explosionTint = this.getExplosionTintForLevel();
+    let explosionScale = 1.5;
+    
+    if (ballType === 'golden') {
+      explosionTint = 0xffd700; // Gold explosion
+      explosionScale = 2.0;
+    } else if (ballType === 'bomb') {
+      explosionTint = 0xff0000; // Red explosion
+      explosionScale = 2.5;
+    }
 
     // Get explosion from pool
     const explosion = this.explosions.getFirstDead(false) as Phaser.GameObjects.Sprite;
@@ -256,21 +269,21 @@ export default class GameScene extends Phaser.Scene {
       explosion.setVisible(true);
       explosion.setActive(true);
       explosion.setAlpha(1);
-      explosion.setScale(1.5); // Make explosion bigger
-      explosion.setTint(explosionTint); // Apply level-specific color
+      explosion.setScale(explosionScale);
+      explosion.setTint(explosionTint);
       explosion.play('explode');
       
       // Reset explosion when animation completes
       explosion.once('animationcomplete', () => {
         explosion.setVisible(false);
         explosion.setActive(false);
-        explosion.clearTint(); // Reset tint for next use
+        explosion.clearTint();
       });
     } else {
       // No explosion available in pool, create a temporary one
       const tempExplosion = this.add.sprite(ballX, ballY, 'explosion');
-      tempExplosion.setScale(1.5);
-      tempExplosion.setTint(explosionTint); // Apply level-specific color
+      tempExplosion.setScale(explosionScale);
+      tempExplosion.setTint(explosionTint);
       tempExplosion.play('explode');
       tempExplosion.once('animationcomplete', () => {
         tempExplosion.destroy();
@@ -281,6 +294,11 @@ export default class GameScene extends Phaser.Scene {
 
     if (this.soundEnabled) {
       this.boom.play();
+    }
+
+    // Handle bomb ball effect - destroy nearby balls
+    if (ballType === 'bomb' && !triggeredByBomb) {
+      this.triggerBombEffect(ballX, ballY);
     }
 
     if (!this.lost) {
@@ -294,20 +312,76 @@ export default class GameScene extends Phaser.Scene {
       this.lastKillTime = now;
 
       // Calculate score with combo multiplier
-      const basePoints = 10 + this.level * 10;
+      let basePoints = 10 + this.level * 10;
+      
+      // Golden ball gives 5x base points!
+      if (ballType === 'golden') {
+        basePoints *= 5;
+      }
+      
       const comboMultiplier = Math.min(this.comboCount, 10); // Cap at 10x
       const points = basePoints * comboMultiplier;
       
       this.score += points;
       this.scoreText.setText('Score: ' + this.score);
 
-      // Show combo feedback if combo > 1
-      if (this.comboCount > 1) {
+      // Show special ball feedback
+      if (ballType === 'golden') {
+        this.showSpecialBallText(ballX, ballY, '⭐ GOLDEN! ⭐', points, '#ffd700');
+      } else if (ballType === 'bomb') {
+        this.showSpecialBallText(ballX, ballY, '💥 BOMB! 💥', points, '#ff4444');
+      } else if (this.comboCount > 1) {
         this.showComboText(ballX, ballY, this.comboCount, points);
       }
     }
 
-    this.shakeCamera(4, 80);
+    this.shakeCamera(ballType === 'bomb' ? 10 : 4, ballType === 'bomb' ? 150 : 80);
+  }
+
+  private triggerBombEffect(x: number, y: number): void {
+    const blastRadius = 150; // Pixels
+    
+    // Find and destroy nearby balls
+    this.balls.forEach(otherBall => {
+      if (otherBall && otherBall.active) {
+        const distance = Phaser.Math.Distance.Between(x, y, otherBall.x, otherBall.y);
+        if (distance < blastRadius) {
+          // Delay slightly for chain reaction effect
+          this.time.delayedCall(100, () => {
+            if (otherBall.active) {
+              this.killBall(otherBall, true); // Pass true to prevent infinite bomb chains
+            }
+          });
+        }
+      }
+    });
+  }
+
+  private showSpecialBallText(x: number, y: number, text: string, points: number, color: string): void {
+    const specialText = this.add.text(x, y - 30, `${text}\n+${points}`, {
+      fontSize: '28px',
+      color: color,
+      fontFamily: 'Arial',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4,
+      align: 'center'
+    });
+    specialText.setOrigin(0.5, 0.5);
+    specialText.setAlpha(1);
+
+    // Animate special text with more flair
+    this.tweens.add({
+      targets: specialText,
+      y: y - 100,
+      alpha: 0,
+      scale: 1.5,
+      duration: 1000,
+      ease: 'Power2',
+      onComplete: () => {
+        specialText.destroy();
+      }
+    });
   }
 
   private showComboText(x: number, y: number, combo: number, points: number): void {
@@ -459,6 +533,17 @@ export default class GameScene extends Phaser.Scene {
     return baseScale;
   }
 
+  private getSpecialBallType(): BallType {
+    // Only spawn special balls from level 2+
+    if (this.level < 2) return 'normal';
+    
+    const rand = Math.random();
+    // 10% chance for golden ball, 8% chance for bomb ball at higher levels
+    if (rand < 0.10) return 'golden';
+    if (rand < 0.18 && this.level >= 3) return 'bomb';
+    return 'normal';
+  }
+
   private spawnBalls(): void {
     const { width, height } = this.scale;
 
@@ -517,9 +602,20 @@ export default class GameScene extends Phaser.Scene {
 
       const ball = this.physics.add.sprite(spawnX, spawnY, ballTexture);
 
+      // Determine if this is a special ball
+      const specialType = this.getSpecialBallType();
+      ball.setData('ballType', specialType);
+
       ball.setOrigin(0.5, 0.5);
       ball.setScale(ballScale);
       ball.setAlpha(0); // Start invisible for spawn animation
+      
+      // Apply visual tint for special balls
+      if (specialType === 'golden') {
+        ball.setTint(0xffd700); // Gold tint
+      } else if (specialType === 'bomb') {
+        ball.setTint(0xff4444); // Red tint
+      }
       
       // Make hit area much larger than visual for easier touch (especially near edges)
       ball.setInteractive({
