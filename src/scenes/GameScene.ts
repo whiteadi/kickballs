@@ -1289,8 +1289,8 @@ export default class GameScene extends Phaser.Scene {
     this.showBossWarning(() => {
       // Create boss ball
       // Note: metal.png is 512x512, while other balls are 32x32
-      // So we need a much smaller scale: 0.15 = ~77px, 0.2 = ~102px, 0.25 = ~128px
-      const bossScale = 0.15 + bossIndex * 0.05; // 0.15, 0.20, 0.25 for bosses 1, 2, 3
+      // Scale: 0.25 = ~128px, 0.30 = ~154px, 0.35 = ~180px
+      const bossScale = 0.25 + bossIndex * 0.05; // 0.25, 0.30, 0.35 for bosses 1, 2, 3
       this.bossBall = this.physics.add.sprite(width / 2, -100, 'ball_metal');
       this.bossBall.setData('ballType', 'boss');
       this.bossBall.setOrigin(0.5, 0.5);
@@ -1474,8 +1474,8 @@ export default class GameScene extends Phaser.Scene {
       this.playHitSound('boss');
     }
 
-    // Spawn minion balls when hit
-    this.spawnMinions(this.bossBall.x, this.bossBall.y, 2);
+    // Spawn minion balls when hit (only 1 per hit to keep it manageable)
+    this.spawnMinions(this.bossBall.x, this.bossBall.y, 1);
 
     // Check if boss is defeated
     if (this.bossHealth <= 0) {
@@ -1498,7 +1498,7 @@ export default class GameScene extends Phaser.Scene {
       const minion = this.physics.add.sprite(x, y, 'ball');
       minion.setData('ballType', 'minion');
       minion.setOrigin(0.5, 0.5);
-      minion.setScale(1.0);
+      minion.setScale(1.5); // Bigger minions (48px) - easier to tap
       minion.setTint(0xff8888); // Light red tint
 
       // Make interactive
@@ -1523,7 +1523,7 @@ export default class GameScene extends Phaser.Scene {
       this.tweens.add({
         targets: minion,
         alpha: 1,
-        scale: 1.0,
+        scale: 1.5, // Match the minion scale
         duration: 200,
         ease: 'Back.easeOut'
       });
