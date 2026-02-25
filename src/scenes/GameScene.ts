@@ -927,6 +927,20 @@ export default class GameScene extends Phaser.Scene {
     this.isBossLevel = false;
     this.bossBall = undefined;
 
+    // Clean up all explosions in the pool
+    this.explosions.getChildren().forEach((explosion) => {
+      const sprite = explosion as Phaser.GameObjects.Sprite;
+      sprite.setVisible(false);
+      sprite.setActive(false);
+      sprite.stop();
+    });
+
+    // Destroy restart button BEFORE creating new game state
+    if (this.restartButton) {
+      this.restartButton.destroy();
+      this.restartButton = undefined;
+    }
+
     // Handle soundtrack
     if (!this.soundEnabled) {
       if (this.soundtrack.isPlaying) {
@@ -950,11 +964,6 @@ export default class GameScene extends Phaser.Scene {
 
     this.resetTimer();
     this.timerText.setText('00:00:00');
-
-    if (this.restartButton) {
-      this.restartButton.destroy();
-      this.restartButton = undefined;
-    }
 
     this.stateText.setVisible(false);
     this.nextLevel();
