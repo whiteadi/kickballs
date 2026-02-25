@@ -570,7 +570,7 @@ export default class GameScene extends Phaser.Scene {
       case 2:
         return 0xe8e8f4; // Slight blue tint
       case 3:
-        return 0xf4e8e8; // Slight red tint - Boss 1
+        return 0xfff0f0; // Very slight pink tint - Boss 1
       case 4:
         return 0xf4f0e0; // Slight yellow/sepia tint
       case 5:
@@ -578,7 +578,7 @@ export default class GameScene extends Phaser.Scene {
       case 6:
         return 0xe8f4f4; // Slight cyan tint
       case 7:
-        return 0xf4e0e0; // Deeper red tint - Boss 2
+        return 0xfff0f0; // Very slight pink tint - Boss 2
       case 8:
         return 0xf0e8f4; // Slight magenta tint
       case 9:
@@ -586,7 +586,7 @@ export default class GameScene extends Phaser.Scene {
       case 10:
         return 0xf4f4e0; // Golden tint
       case 11:
-        return 0xe0d8d0; // Dark/epic tint - Final Boss
+        return 0xfff8f0; // Slight warm tint - Final Boss
       default:
         return 0xffffff;
     }
@@ -1330,11 +1330,7 @@ export default class GameScene extends Phaser.Scene {
   private showBossWarning(onComplete: () => void): void {
     const { width, height } = this.scale;
 
-    // Brief red tint effect (less intense than flash)
-    this.cameras.main.flash(200, 255, 0, 0, false, (_cam: Phaser.Cameras.Scene2D.Camera, progress: number) => {
-      // Fade out quickly
-      if (progress > 0.3) return;
-    });
+    // No camera flash - just use the warning text animation
 
     // Boss warning text
     const bossIndex = BOSS_LEVELS.indexOf(this.level);
