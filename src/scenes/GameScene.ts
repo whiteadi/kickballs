@@ -595,14 +595,9 @@ export default class GameScene extends Phaser.Scene {
   private showLevelTransition(onComplete: () => void): void {
     const { width, height } = this.scale;
 
-    // Update background tint for this level
-    const newTint = this.getBackgroundTintForLevel();
-    this.tweens.add({
-      targets: this.theBackground,
-      tint: newTint,
-      duration: 500,
-      ease: 'Power2'
-    });
+    // Reset background tint to white (no tint) for all levels
+    // The tint was causing dark overlays on the background
+    this.theBackground.clearTint();
 
     // Create level announcement text
     const levelText = this.add.text(width / 2, height / 2, `Level ${this.level + 1}`, {
@@ -1276,13 +1271,13 @@ export default class GameScene extends Phaser.Scene {
 
     // Show boss warning
     this.showBossWarning(() => {
-      // Create boss ball
-      const bossScale = 3.0 + bossIndex * 0.5; // Bigger for later bosses
+      // Create boss ball - reasonable size, not too big
+      const bossScale = 2.0 + bossIndex * 0.3; // 2.0, 2.3, 2.6 for bosses 1, 2, 3
       this.bossBall = this.physics.add.sprite(width / 2, -100, 'ball_metal');
       this.bossBall.setData('ballType', 'boss');
       this.bossBall.setOrigin(0.5, 0.5);
       this.bossBall.setScale(bossScale);
-      this.bossBall.setTint(0xff0000); // Red tint for boss
+      // No tint - use the natural ball_metal texture
 
       // Make interactive
       this.bossBall.setInteractive({
@@ -1433,11 +1428,11 @@ export default class GameScene extends Phaser.Scene {
 
     this.bossHealth--;
     
-    // Flash boss white
+    // Flash boss white briefly then clear tint
     this.bossBall.setTint(0xffffff);
     this.time.delayedCall(100, () => {
       if (this.bossBall && this.bossBall.active) {
-        this.bossBall.setTint(0xff0000);
+        this.bossBall.clearTint(); // Return to natural texture
       }
     });
 
