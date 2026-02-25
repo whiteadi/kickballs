@@ -176,9 +176,10 @@ export default class GameScene extends Phaser.Scene {
 
   private createParticleEmitters(): void {
     // Pop particles - burst when ball is destroyed
+    // Using very small scale since ball textures are large
     this.popParticles = this.add.particles(0, 0, 'ball', {
       speed: { min: 100, max: 200 },
-      scale: { start: 0.3, end: 0 },
+      scale: { start: 0.1, end: 0 },
       lifespan: 400,
       gravityY: 200,
       emitting: false
@@ -187,7 +188,7 @@ export default class GameScene extends Phaser.Scene {
     // Sparkle particles - for golden balls and combos
     this.sparkleParticles = this.add.particles(0, 0, 'ball_shiny', {
       speed: { min: 50, max: 150 },
-      scale: { start: 0.2, end: 0 },
+      scale: { start: 0.08, end: 0 },
       lifespan: 600,
       alpha: { start: 1, end: 0 },
       tint: 0xffd700,
@@ -197,7 +198,7 @@ export default class GameScene extends Phaser.Scene {
     // Combo particles - escalating effect
     this.comboParticles = this.add.particles(0, 0, 'ball_shiny', {
       speed: { min: 80, max: 180 },
-      scale: { start: 0.25, end: 0 },
+      scale: { start: 0.1, end: 0 },
       lifespan: 500,
       alpha: { start: 1, end: 0 },
       emitting: false
@@ -671,8 +672,14 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private getBallScaleForLevel(): number {
-    // Base scale for mobile
+    // Base scale for mobile (for 32x32 balls)
     const baseScale = 1.5;
+    
+    // Metal balls (levels 4-5) are 512x512, so need much smaller scale
+    // 512 * 0.1 = ~51px, similar to 32 * 1.5 = 48px
+    if (this.level === 4 || this.level === 5) {
+      return 0.08 + Math.random() * 0.04; // 0.08 to 0.12 for metal balls
+    }
     
     // Add size variation at higher levels
     if (this.level >= 4) {
@@ -1271,8 +1278,10 @@ export default class GameScene extends Phaser.Scene {
 
     // Show boss warning
     this.showBossWarning(() => {
-      // Create boss ball - reasonable size, not too big
-      const bossScale = 2.0 + bossIndex * 0.3; // 2.0, 2.3, 2.6 for bosses 1, 2, 3
+      // Create boss ball
+      // Note: metal.png is 512x512, while other balls are 32x32
+      // So we need a much smaller scale: 0.15 = ~77px, 0.2 = ~102px, 0.25 = ~128px
+      const bossScale = 0.15 + bossIndex * 0.05; // 0.15, 0.20, 0.25 for bosses 1, 2, 3
       this.bossBall = this.physics.add.sprite(width / 2, -100, 'ball_metal');
       this.bossBall.setData('ballType', 'boss');
       this.bossBall.setOrigin(0.5, 0.5);
