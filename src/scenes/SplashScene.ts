@@ -47,6 +47,7 @@ export default class SplashScene extends Phaser.Scene {
     });
     this.load.image('logo', 'images/logo.jpg');
     this.load.image('restart', 'images/restart.png');
+    this.load.image('mushroom', 'images/mushroom2.png');
 
     // Load audio with error handling
     // Some browsers (Safari) may fail to decode certain audio formats
