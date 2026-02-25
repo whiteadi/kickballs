@@ -48,10 +48,24 @@ export default class SplashScene extends Phaser.Scene {
     this.load.image('logo', 'images/logo.jpg');
     this.load.image('restart', 'images/restart.png');
 
-    // Load audio
+    // Load audio with error handling
+    // Some browsers (Safari) may fail to decode certain audio formats
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      console.warn(`Failed to load audio: ${file.key}`);
+    });
+
     this.load.audio('boom', 'media/explosion.wav');
     this.load.audio('game-over', 'media/game-over.wav');
     this.load.audio('soundtrack', 'media/Ascending2.mp3');
+    
+    // New sound effects
+    this.load.audio('pop', 'media/pop.wav');
+    this.load.audio('cha-ching', 'media/cha-ching.wav');
+    this.load.audio('combo', 'media/combo.wav');
+    this.load.audio('power-up', 'media/power-up.wav');
+    this.load.audio('victory', 'media/victory-jingle.wav');
+    this.load.audio('boss-fight', 'media/boss-fight.wav');
+    this.load.audio('punch', 'media/punch.m4a');
 
     // Load mute button spritesheet
     this.load.spritesheet('mute', 'images/mute2.png', {

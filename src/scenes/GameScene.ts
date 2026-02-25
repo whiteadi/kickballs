@@ -88,10 +88,24 @@ export default class GameScene extends Phaser.Scene {
     this.theBackground = this.add.tileSprite(0, 0, 480, 640, 'background');
     this.theBackground.setOrigin(0, 0);
 
-    // Audio setup
+    // Audio setup with error handling
     this.boom = this.sound.add('boom', { volume: 0.2 });
     this.gameoverSound = this.sound.add('game-over', { volume: 0.3 });
-    this.soundtrack = this.sound.add('soundtrack', { volume: 0.3, loop: true });
+    
+    // Soundtrack may fail on some browsers (Safari), so handle gracefully
+    try {
+      if (this.cache.audio.exists('soundtrack')) {
+        this.soundtrack = this.sound.add('soundtrack', { volume: 0.3, loop: true });
+      } else {
+        console.warn('Soundtrack not available');
+        // Create a dummy sound object to prevent errors
+        this.soundtrack = this.sound.add('boom', { volume: 0 });
+      }
+    } catch (e) {
+      console.warn('Failed to load soundtrack:', e);
+      // Create a dummy sound object to prevent errors
+      this.soundtrack = this.sound.add('boom', { volume: 0 });
+    }
 
     // Sound toggle button
     this.soundToggle = this.add.image(width - 130, 15, 'mute', 0);
@@ -888,6 +902,29 @@ export default class GameScene extends Phaser.Scene {
     this.scoreBoostActive = false;
     this.timeFreezeActive = false;
 
+    // Clean up particle emitters
+    if (this.popParticles) {
+      this.popParticles.stop();
+    }
+    if (this.sparkleParticles) {
+      this.sparkleParticles.stop();
+    }
+    if (this.comboParticles) {
+      this.comboParticles.stop();
+    }
+
+    // Clean up boss health bar if exists
+    if (this.bossHealthBar) {
+      this.bossHealthBar.destroy();
+      this.bossHealthBar = undefined;
+    }
+    if (this.bossHealthBarBg) {
+      this.bossHealthBarBg.destroy();
+      this.bossHealthBarBg = undefined;
+    }
+    this.isBossLevel = false;
+    this.bossBall = undefined;
+
     // Handle soundtrack
     if (!this.soundEnabled) {
       if (this.soundtrack.isPlaying) {
@@ -933,41 +970,47 @@ export default class GameScene extends Phaser.Scene {
   // ==================== SOUND SYSTEM ====================
 
   private playHitSound(ballType: BallType): void {
-    // Different pitch/rate based on ball type and combo
-    let rate = 1.0;
-    let volume = 0.2;
-
     switch (ballType) {
       case 'golden':
-        rate = 1.5; // Higher pitch for golden
-        volume = 0.3;
+        // Satisfying cha-ching for golden balls
+        this.sound.play('cha-ching', { volume: 0.4 });
         break;
       case 'bomb':
-        rate = 0.7; // Lower pitch for bomb
-        volume = 0.35;
+        // Deep explosion for bomb balls
+        this.sound.play('boom', { volume: 0.4, rate: 0.8 });
         break;
       case 'boss':
-        rate = 0.5; // Very low for boss
-        volume = 0.4;
+        // Heavy punch for boss hits
+        this.sound.play('punch', { volume: 0.5 });
         break;
       case 'minion':
-        rate = 1.3; // Slightly higher for minions
-        volume = 0.15;
+        // Quick pop for minions
+        this.sound.play('pop', { volume: 0.25, rate: 1.2 });
         break;
-      default:
-        // Vary pitch based on combo for normal balls
-        rate = 1.0 + (this.comboCount - 1) * 0.1; // Escalating pitch
-        rate = Math.min(rate, 2.0); // Cap at 2x
+      default: {
+        // Normal pop with combo pitch escalation
+        const rate = 1.0 + (this.comboCount - 1) * 0.08;
+        this.sound.play('pop', { volume: 0.3, rate: Math.min(rate, 1.5) });
+        
+        // Play combo sound on combos 3+
+        if (this.comboCount >= 3) {
+          this.sound.play('combo', { volume: 0.25, rate: 0.8 + this.comboCount * 0.1 });
+        }
         break;
+      }
     }
-
-    // Play with modified rate
-    this.sound.play('boom', { volume, rate });
   }
 
   private playPowerUpSound(): void {
-    // Higher pitch "whoosh" effect for power-ups
-    this.sound.play('boom', { volume: 0.25, rate: 1.8 });
+    this.sound.play('power-up', { volume: 0.4 });
+  }
+
+  private playVictorySound(): void {
+    this.sound.play('victory', { volume: 0.5 });
+  }
+
+  private playBossWarningSound(): void {
+    this.sound.play('boss-fight', { volume: 0.4 });
   }
 
   // ==================== POWER-UP SYSTEM ====================
@@ -1287,8 +1330,11 @@ export default class GameScene extends Phaser.Scene {
   private showBossWarning(onComplete: () => void): void {
     const { width, height } = this.scale;
 
-    // Flash screen red
-    this.cameras.main.flash(500, 255, 0, 0);
+    // Brief red tint effect (less intense than flash)
+    this.cameras.main.flash(200, 255, 0, 0, false, (_cam: Phaser.Cameras.Scene2D.Camera, progress: number) => {
+      // Fade out quickly
+      if (progress > 0.3) return;
+    });
 
     // Boss warning text
     const bossIndex = BOSS_LEVELS.indexOf(this.level);
@@ -1306,6 +1352,11 @@ export default class GameScene extends Phaser.Scene {
     warningText.setOrigin(0.5, 0.5);
     warningText.setAlpha(0);
     warningText.setScale(0.5);
+
+    // Play boss warning sound
+    if (this.soundEnabled) {
+      this.playBossWarningSound();
+    }
 
     // Pulsing animation
     this.tweens.add({
@@ -1409,9 +1460,9 @@ export default class GameScene extends Phaser.Scene {
     // Screen shake
     this.shakeCamera(8, 100);
 
-    // Play sound
+    // Play boss hit sound
     if (this.soundEnabled) {
-      this.boom.play();
+      this.playHitSound('boss');
     }
 
     // Spawn minion balls when hit
@@ -1517,9 +1568,9 @@ export default class GameScene extends Phaser.Scene {
     // Big screen shake
     this.shakeCamera(25, 500);
 
-    // Play sound
+    // Play victory sound
     if (this.soundEnabled) {
-      this.boom.play();
+      this.playVictorySound();
     }
 
     // Remove boss from balls array
