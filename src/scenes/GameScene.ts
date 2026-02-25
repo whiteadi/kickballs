@@ -641,6 +641,7 @@ export default class GameScene extends Phaser.Scene {
   private getBallTextureForLevel(): string {
     // Different ball types per level for visual variety
     // 12 levels with cycling ball types
+    // NOTE: ball_metal is NOT used because metal.png is a rectangular image, not a ball!
     switch (this.level) {
       case 0:
       case 1:
@@ -650,20 +651,20 @@ export default class GameScene extends Phaser.Scene {
         return 'ball_shiny'; // Shiny balls for early-mid levels
       case 4:
       case 5:
-        return 'ball_metal'; // Metal balls for mid levels
+        return 'ball_pang'; // Pang balls for mid levels (was metal, but metal.png is broken)
       case 6:
       case 7:
-        return 'ball_pang'; // Pang balls for mid-late levels
+        return 'ball'; // Black balls for mid-late levels
       case 8:
       case 9: {
-        // Mixed - randomly choose between all types
-        const mixedTypes = ['ball', 'ball_shiny', 'ball_metal', 'ball_pang'];
+        // Mixed - randomly choose between working ball types
+        const mixedTypes = ['ball', 'ball_shiny', 'ball_pang'];
         return mixedTypes[Math.floor(Math.random() * mixedTypes.length)];
       }
       case 10:
       case 11: {
-        // Final levels - also mixed but with preference for shiny/metal
-        const finalTypes = ['ball_shiny', 'ball_metal', 'ball_shiny', 'ball_metal', 'ball_pang'];
+        // Final levels - also mixed
+        const finalTypes = ['ball_shiny', 'ball_pang', 'ball_shiny', 'ball'];
         return finalTypes[Math.floor(Math.random() * finalTypes.length)];
       }
       default:
@@ -675,14 +676,8 @@ export default class GameScene extends Phaser.Scene {
     // Base scale for mobile (for 32x32 balls)
     const baseScale = 1.5;
     
-    // Metal balls (levels 4-5) are 512x512, so need much smaller scale
-    // 512 * 0.1 = ~51px, similar to 32 * 1.5 = 48px
-    if (this.level === 4 || this.level === 5) {
-      return 0.08 + Math.random() * 0.04; // 0.08 to 0.12 for metal balls
-    }
-    
     // Add size variation at higher levels
-    if (this.level >= 4) {
+    if (this.level >= 6) {
       // Mix of sizes: some smaller, some larger
       return baseScale * (0.8 + Math.random() * 0.6); // 0.8x to 1.4x
     } else if (this.level >= 2) {
@@ -1287,11 +1282,10 @@ export default class GameScene extends Phaser.Scene {
 
     // Show boss warning
     this.showBossWarning(() => {
-      // Create boss ball
-      // Note: metal.png is 512x512, while other balls are 32x32
-      // Scale: 0.25 = ~128px, 0.30 = ~154px, 0.35 = ~180px
-      const bossScale = 0.25 + bossIndex * 0.05; // 0.25, 0.30, 0.35 for bosses 1, 2, 3
-      this.bossBall = this.physics.add.sprite(width / 2, -100, 'ball_metal');
+      // Create boss ball - use ball_shiny instead of ball_metal (metal.png is rectangular!)
+      // Scale: 2.5 = ~80px, 3.0 = ~96px, 3.5 = ~112px (for 32x32 ball_shiny)
+      const bossScale = 2.5 + bossIndex * 0.5; // 2.5, 3.0, 3.5 for bosses 1, 2, 3
+      this.bossBall = this.physics.add.sprite(width / 2, -100, 'ball_shiny');
       this.bossBall.setData('ballType', 'boss');
       this.bossBall.setOrigin(0.5, 0.5);
       this.bossBall.setScale(bossScale);
