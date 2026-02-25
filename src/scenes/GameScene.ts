@@ -1581,5 +1581,8 @@ export default class GameScene extends Phaser.Scene {
 
     // Reset boss state
     this.isBossLevel = false;
+
+    // IMPORTANT: Reset timer for next level!
+    this.resetTimer();
   }
 }
