@@ -20,6 +20,8 @@ export default class GameScene extends Phaser.Scene {
   private bossHealthBar?: Phaser.GameObjects.Graphics;
   private bossHealthBarBg?: Phaser.GameObjects.Graphics;
   private score: number = 0;
+  private highScore: number = 0;
+  private highScoreText!: Phaser.GameObjects.Text;
   private lost: boolean = false;
   private soundEnabled: boolean = true;
   private levelTransitioning: boolean = false; // Prevent multiple level transitions
@@ -74,6 +76,9 @@ export default class GameScene extends Phaser.Scene {
     this.soundEnabled = true;
     this.startTime = 0;
     this.levelTransitioning = false;
+    
+    // Load high score from localStorage
+    this.loadHighScore();
   }
 
   create(): void {
@@ -129,6 +134,13 @@ export default class GameScene extends Phaser.Scene {
       fontFamily: 'Baskerville Old Face, serif',
       fontSize: '24px',
       color: '#000000'
+    });
+
+    // High score text (below score)
+    this.highScoreText = this.add.text(10, 42, `Best: ${this.highScore}`, {
+      fontFamily: 'Arial',
+      fontSize: '16px',
+      color: '#666666'
     });
 
     // Level label
@@ -301,6 +313,15 @@ export default class GameScene extends Phaser.Scene {
             this.stateText.setText(' You Won!');
             this.stateText.setVisible(true);
             this.resetTimer();
+            
+            // Save high score on win
+            this.saveHighScore();
+            this.updateHighScoreDisplay();
+            
+            // Play victory sound
+            if (this.soundEnabled) {
+              this.playVictorySound();
+            }
           }
         }
       } else if (!this.lost) {
@@ -861,6 +882,10 @@ export default class GameScene extends Phaser.Scene {
     this.stateText.setText(' You Lost!');
     this.stateText.setVisible(true);
 
+    // Save high score
+    this.saveHighScore();
+    this.updateHighScoreDisplay();
+
     // Create restart button with fade-in
     this.restartButton = this.add.image(width / 2 + 10, 195, 'restart');
     this.restartButton.setOrigin(0.5, 0.5);
@@ -970,7 +995,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private shakeCamera(intensity: number, duration: number): void {
-    this.cameras.main.shake(duration * 3, intensity / 100);
+    // Screen shake disabled - it was distracting during gameplay
+    // Keeping the method for potential future use with a toggle option
+    // this.cameras.main.shake(duration * 3, intensity / 100);
   }
 
   // ==================== SOUND SYSTEM ====================
@@ -1584,5 +1611,40 @@ export default class GameScene extends Phaser.Scene {
 
     // IMPORTANT: Reset timer for next level!
     this.resetTimer();
+  }
+
+  // ==================== HIGH SCORE SYSTEM ====================
+
+  private loadHighScore(): void {
+    try {
+      const saved = localStorage.getItem('kickballs_highscore');
+      this.highScore = saved ? parseInt(saved, 10) : 0;
+    } catch (e) {
+      console.warn('Could not load high score:', e);
+      this.highScore = 0;
+    }
+  }
+
+  private saveHighScore(): void {
+    if (this.score > this.highScore) {
+      this.highScore = this.score;
+      try {
+        localStorage.setItem('kickballs_highscore', String(this.highScore));
+      } catch (e) {
+        console.warn('Could not save high score:', e);
+      }
+    }
+  }
+
+  private updateHighScoreDisplay(): void {
+    if (this.highScoreText) {
+      this.highScoreText.setText(`Best: ${this.highScore}`);
+      
+      // Flash if new high score
+      if (this.score >= this.highScore && this.score > 0) {
+        this.highScoreText.setColor('#ffd700');
+        this.highScoreText.setText(`🏆 NEW BEST: ${this.highScore}`);
+      }
+    }
   }
 }
