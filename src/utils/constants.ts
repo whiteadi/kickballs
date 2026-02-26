@@ -1,38 +1,38 @@
-// Base ball speed
-export const BALL_SPEED = 160;
+// Base ball speed - slightly increased
+export const BALL_SPEED = 180;
 
 // Speed multiplier per level (balls get faster as levels progress)
-// 12 levels: gradual increase from 1.0x to 1.6x
+// 12 levels: gradual increase from 1.0x to 1.8x (was 1.6x)
 export const SPEED_MULTIPLIERS = [
   1.0,  // Level 1 - Tutorial
-  1.05, // Level 2
-  1.1,  // Level 3
-  1.15, // Level 4 - Boss
-  1.2,  // Level 5
-  1.25, // Level 6
-  1.3,  // Level 7
-  1.35, // Level 8 - Boss
-  1.4,  // Level 9
-  1.45, // Level 10
-  1.5,  // Level 11
-  1.6   // Level 12 - Final Boss
+  1.1,  // Level 2 (was 1.05)
+  1.2,  // Level 3 (was 1.1)
+  1.25, // Level 4 - Boss (was 1.15)
+  1.3,  // Level 5 (was 1.2)
+  1.35, // Level 6 (was 1.25)
+  1.4,  // Level 7 (was 1.3)
+  1.5,  // Level 8 - Boss (was 1.35)
+  1.55, // Level 9 (was 1.4)
+  1.6,  // Level 10 (was 1.45)
+  1.7,  // Level 11 (was 1.5)
+  1.8   // Level 12 - Final Boss (was 1.6)
 ];
 
-// Time limits per level (in seconds)
-// More generous time for more balls
+// Time limits per level (in seconds) - reduced by ~20%
+// Still generous enough to be fair but more challenging
 export const TIME_INTERVALS = [
-  10,  // Level 1 - 4 balls
-  14,  // Level 2 - 6 balls
-  18,  // Level 3 - 8 balls
-  24,  // Level 4 - Boss (10 balls)
-  18,  // Level 5 - 8 balls (reset after boss)
-  22,  // Level 6 - 10 balls
-  26,  // Level 7 - 12 balls
-  32,  // Level 8 - Boss (14 balls)
-  26,  // Level 9 - 12 balls (reset after boss)
-  30,  // Level 10 - 14 balls
-  36,  // Level 11 - 16 balls
-  45   // Level 12 - Final Boss (18 balls)
+  8,   // Level 1 - 4 balls (was 10)
+  11,  // Level 2 - 6 balls (was 14)
+  14,  // Level 3 - 8 balls (was 18)
+  20,  // Level 4 - Boss (was 24)
+  14,  // Level 5 - 8 balls (was 18)
+  18,  // Level 6 - 10 balls (was 22)
+  21,  // Level 7 - 12 balls (was 26)
+  26,  // Level 8 - Boss (was 32)
+  21,  // Level 9 - 12 balls (was 26)
+  24,  // Level 10 - 14 balls (was 30)
+  29,  // Level 11 - 16 balls (was 36)
+  36   // Level 12 - Final Boss (was 45)
 ];
 
 // Number of balls per level (12 levels with gradual progression)
