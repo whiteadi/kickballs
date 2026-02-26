@@ -283,9 +283,10 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (this.balls.length > 0) {
+      // Check ALL balls in the array (including minions spawned by bosses)
       let allBallsKilled = true;
 
-      for (let i = 0; i < LEVELS[this.level]; i++) {
+      for (let i = 0; i < this.balls.length; i++) {
         const ball = this.balls[i];
         if (ball && ball.active && !this.lost) {
           allBallsKilled = false;
@@ -1780,7 +1781,7 @@ export default class GameScene extends Phaser.Scene {
     this.scoreText.setText('Score: ' + this.score);
 
     // Show victory text
-    this.showSpecialBallText(x, y, '🏆 BOSS DEFEATED! 🏆', bonusPoints, '#ffd700');
+    this.showSpecialBallText(x, y, '🏆 BOSS DOWN! 🏆', bonusPoints, '#ffd700');
 
     // Big screen shake
     this.shakeCamera(25, 500);
@@ -1790,14 +1791,20 @@ export default class GameScene extends Phaser.Scene {
       this.playVictorySound();
     }
 
-    // Remove boss from balls array
-    this.balls = this.balls.filter(b => b !== this.bossBall);
+    // Remove boss from balls array but KEEP minions - they must be killed too!
+    this.balls = this.balls.filter(b => b && b.active && b !== this.bossBall);
 
-    // Reset boss state
+    // Reset boss state but DON'T reset timer yet - minions still need to be killed
     this.isBossLevel = false;
-
-    // IMPORTANT: Reset timer for next level!
-    this.resetTimer();
+    
+    // Show message about remaining minions if any
+    const remainingMinions = this.balls.filter(b => b && b.active).length;
+    if (remainingMinions > 0) {
+      this.showSpecialBallText(x, y - 80, `Kill ${remainingMinions} minions!`, 0, '#ff8888');
+    } else {
+      // No minions left, reset timer for next level
+      this.resetTimer();
+    }
   }
 
   // ==================== ACHIEVEMENTS SYSTEM ====================
