@@ -23,6 +23,7 @@ export default class GameScene extends Phaser.Scene {
   private highScore: number = 0;
   private highScoreText!: Phaser.GameObjects.Text;
   private lost: boolean = false;
+  private won: boolean = false; // Track if player has won the game
   private soundEnabled: boolean = true;
   private levelTransitioning: boolean = false; // Prevent multiple level transitions
 
@@ -73,6 +74,7 @@ export default class GameScene extends Phaser.Scene {
     this.balls = [];
     this.score = 0;
     this.lost = false;
+    this.won = false; // Reset won state
     this.soundEnabled = true;
     this.startTime = 0;
     this.levelTransitioning = false;
@@ -307,7 +309,13 @@ export default class GameScene extends Phaser.Scene {
           if (elapsed > TIME_INTERVALS[this.level]) {
             this.youLost();
             this.killAllBalls();
-          } else if (!this.lost) {
+          } else if (!this.lost && !this.won) {
+            // Mark game as won to prevent further updates
+            this.won = true;
+            
+            // Stop power-up spawning and clean up
+            this.stopPowerUpSpawning();
+            
             this.scoreText.setX(this.scale.width / 2 - 150);
             this.scoreText.setColor('#107378');
             this.stateText.setText(' You Won!');
@@ -322,6 +330,21 @@ export default class GameScene extends Phaser.Scene {
             if (this.soundEnabled) {
               this.playVictorySound();
             }
+            
+            // Show restart button after winning
+            const { width } = this.scale;
+            this.restartButton = this.add.image(width / 2 + 10, 195, 'restart');
+            this.restartButton.setOrigin(0.5, 0.5);
+            this.restartButton.setAlpha(0);
+            this.restartButton.setInteractive();
+            this.restartButton.on('pointerup', this.restart, this);
+
+            this.tweens.add({
+              targets: this.restartButton,
+              alpha: 1,
+              duration: 1000,
+              delay: 2000
+            });
           }
         }
       } else if (!this.lost) {
@@ -981,6 +1004,7 @@ export default class GameScene extends Phaser.Scene {
     this.scoreText.setColor('#000000');
     this.level = 0;
     this.lost = false;
+    this.won = false; // Reset won state
 
     this.resetTimer();
     this.timerText.setText('00:00:00');
