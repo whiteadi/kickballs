@@ -79,8 +79,14 @@ export default class GameScene extends Phaser.Scene {
     this.startTime = 0;
     this.levelTransitioning = false;
     
-    // Load high score from localStorage
+    // Reset achievement tracking for this run
+    this.goldenBallsPopped = 0;
+    this.bossesDefeated = 0;
+    this.hasLostThisRun = false;
+    
+    // Load high score and achievements from localStorage
     this.loadHighScore();
+    this.loadAchievements();
   }
 
   create(): void {
@@ -302,6 +308,18 @@ export default class GameScene extends Phaser.Scene {
           this.level++;
           if (!this.lost) {
             this.levelTransitioning = true; // Prevent multiple transitions
+            
+            // Award first blood achievement
+            if (this.level === 1) {
+              this.unlockAchievement('first_blood');
+            }
+            
+            // Check for speed demon (cleared level in under 3 seconds)
+            const elapsed = this.getElapsedSeconds();
+            if (elapsed < 3) {
+              this.unlockAchievement('speed_demon');
+            }
+            
             this.nextLevel();
           }
         } else {
@@ -312,6 +330,12 @@ export default class GameScene extends Phaser.Scene {
           } else if (!this.lost && !this.won) {
             // Mark game as won to prevent further updates
             this.won = true;
+            
+            // Award achievements for winning
+            this.unlockAchievement('champion');
+            if (!this.hasLostThisRun) {
+              this.unlockAchievement('perfectionist');
+            }
             
             // Stop power-up spawning and clean up
             this.stopPowerUpSpawning();
@@ -499,11 +523,19 @@ export default class GameScene extends Phaser.Scene {
       // Show special ball feedback
       if (ballType === 'golden') {
         this.showSpecialBallText(ballX, ballY, '⭐ GOLDEN! ⭐', points, '#ffd700');
+        // Track golden balls for achievement
+        this.goldenBallsPopped++;
+        if (this.goldenBallsPopped >= 10) {
+          this.unlockAchievement('golden_touch');
+        }
       } else if (ballType === 'bomb') {
         this.showSpecialBallText(ballX, ballY, '💥 BOMB! 💥', points, '#ff4444');
       } else if (this.comboCount > 1) {
         this.showComboText(ballX, ballY, this.comboCount, points);
       }
+      
+      // Check achievements after each kill
+      this.checkAchievements();
     }
 
     this.shakeCamera(ballType === 'bomb' ? 10 : 4, ballType === 'bomb' ? 150 : 80);
@@ -928,6 +960,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.shakeCamera(20, 100);
     this.lost = true;
+    this.hasLostThisRun = true; // Track for perfectionist achievement
   }
 
   private resetTimer(): void {
@@ -1612,6 +1645,12 @@ export default class GameScene extends Phaser.Scene {
     this.bossBall.destroy();
     this.bossBall = undefined;
 
+    // Track boss defeat for achievements
+    this.bossesDefeated++;
+    if (this.bossesDefeated >= 3) {
+      this.unlockAchievement('boss_slayer');
+    }
+
     // Clean up health bar
     if (this.bossHealthBar) {
       this.bossHealthBar.destroy();
@@ -1647,6 +1686,126 @@ export default class GameScene extends Phaser.Scene {
 
     // IMPORTANT: Reset timer for next level!
     this.resetTimer();
+  }
+
+  // ==================== ACHIEVEMENTS SYSTEM ====================
+
+  private achievements: Record<string, boolean> = {};
+  private achievementDefinitions = [
+    { id: 'first_blood', name: '🎯 First Blood', desc: 'Complete Level 1' },
+    { id: 'speed_demon', name: '⚡ Speed Demon', desc: 'Clear a level in under 3 seconds' },
+    { id: 'combo_master', name: '🔥 Combo Master', desc: 'Get a 10x combo' },
+    { id: 'golden_touch', name: '💰 Golden Touch', desc: 'Pop 10 golden balls' },
+    { id: 'boss_slayer', name: '👑 Boss Slayer', desc: 'Defeat all 3 bosses' },
+    { id: 'champion', name: '🏆 Champion', desc: 'Beat the game' },
+    { id: 'perfectionist', name: '⭐ Perfectionist', desc: 'Beat the game without losing' },
+    { id: 'high_scorer', name: '💯 High Scorer', desc: 'Score over 100,000 points' }
+  ];
+  private goldenBallsPopped: number = 0;
+  private bossesDefeated: number = 0;
+  private hasLostThisRun: boolean = false;
+  private achievementPopup?: Phaser.GameObjects.Container;
+
+  private loadAchievements(): void {
+    try {
+      const saved = localStorage.getItem('kickballs_achievements');
+      this.achievements = saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.warn('Could not load achievements:', e);
+      this.achievements = {};
+    }
+  }
+
+  private saveAchievements(): void {
+    try {
+      localStorage.setItem('kickballs_achievements', JSON.stringify(this.achievements));
+    } catch (e) {
+      console.warn('Could not save achievements:', e);
+    }
+  }
+
+  private unlockAchievement(id: string): void {
+    if (this.achievements[id]) return; // Already unlocked
+
+    this.achievements[id] = true;
+    this.saveAchievements();
+
+    // Find achievement definition
+    const achievement = this.achievementDefinitions.find(a => a.id === id);
+    if (achievement) {
+      this.showAchievementPopup(achievement.name, achievement.desc);
+    }
+  }
+
+  private showAchievementPopup(name: string, desc: string): void {
+    const { width } = this.scale;
+
+    // Create container for popup
+    const popup = this.add.container(width / 2, -80);
+
+    // Background
+    const bg = this.add.graphics();
+    bg.fillStyle(0x000000, 0.85);
+    bg.fillRoundedRect(-150, -35, 300, 70, 10);
+    bg.lineStyle(2, 0xffd700);
+    bg.strokeRoundedRect(-150, -35, 300, 70, 10);
+    popup.add(bg);
+
+    // Achievement text
+    const titleText = this.add.text(0, -15, '🏅 ACHIEVEMENT UNLOCKED!', {
+      fontSize: '14px',
+      color: '#ffd700',
+      fontFamily: 'Arial',
+      fontStyle: 'bold'
+    });
+    titleText.setOrigin(0.5, 0.5);
+    popup.add(titleText);
+
+    const nameText = this.add.text(0, 8, name, {
+      fontSize: '18px',
+      color: '#ffffff',
+      fontFamily: 'Arial',
+      fontStyle: 'bold'
+    });
+    nameText.setOrigin(0.5, 0.5);
+    popup.add(nameText);
+
+    // Slide in animation
+    this.tweens.add({
+      targets: popup,
+      y: 60,
+      duration: 500,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        // Hold for 2 seconds then slide out
+        this.time.delayedCall(2000, () => {
+          this.tweens.add({
+            targets: popup,
+            y: -80,
+            duration: 400,
+            ease: 'Power2',
+            onComplete: () => popup.destroy()
+          });
+        });
+      }
+    });
+
+    // Play achievement sound
+    if (this.soundEnabled) {
+      this.sound.play('cha-ching', { volume: 0.5 });
+    }
+  }
+
+  private checkAchievements(): void {
+    // Check combo master
+    if (this.comboCount >= 10) {
+      this.unlockAchievement('combo_master');
+    }
+
+    // Check high scorer
+    if (this.score >= 100000) {
+      this.unlockAchievement('high_scorer');
+    }
   }
 
   // ==================== HIGH SCORE SYSTEM ====================
