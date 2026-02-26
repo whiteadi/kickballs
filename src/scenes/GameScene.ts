@@ -640,6 +640,9 @@ export default class GameScene extends Phaser.Scene {
   private showLevelTransition(onComplete: () => void): void {
     const { width, height } = this.scale;
 
+    // Clean up power-ups from previous level
+    this.stopPowerUpSpawning();
+
     // Reset background tint to white (no tint) for all levels
     // The tint was causing dark overlays on the background
     this.theBackground.clearTint();
@@ -1286,8 +1289,14 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private activateBombPowerUp(): void {
-    // Destroy 3 random balls
-    const activeBalls = this.balls.filter(b => b && b.active);
+    // Destroy 3 random balls (but NOT the boss!)
+    const activeBalls = this.balls.filter(b => {
+      if (!b || !b.active) return false;
+      const ballType = b.getData('ballType') as BallType;
+      // Don't target bosses with bomb power-up
+      return ballType !== 'boss';
+    });
+    
     const toDestroy = Math.min(3, activeBalls.length);
 
     for (let i = 0; i < toDestroy; i++) {
@@ -1328,7 +1337,8 @@ export default class GameScene extends Phaser.Scene {
 
     // Determine boss tier based on level
     const bossIndex = BOSS_LEVELS.indexOf(this.level);
-    this.bossMaxHealth = 5 + bossIndex * 2; // 5, 7, 9 health for bosses 1, 2, 3
+    // Increased boss health: 8, 12, 16 for bosses 1, 2, 3 (was 5, 7, 9)
+    this.bossMaxHealth = 8 + bossIndex * 4;
     this.bossHealth = this.bossMaxHealth;
 
     // Show boss warning
@@ -1362,8 +1372,8 @@ export default class GameScene extends Phaser.Scene {
         duration: 1500,
         ease: 'Bounce.easeOut',
         onComplete: () => {
-          // Start boss movement
-          const speed = 100 + bossIndex * 30;
+          // Start boss movement - faster bosses! (was 100 + bossIndex * 30)
+          const speed = 140 + bossIndex * 40;
           this.bossBall!.setVelocity(
             (Math.random() - 0.5) * speed * 2,
             (Math.random() - 0.5) * speed * 2
@@ -1519,8 +1529,10 @@ export default class GameScene extends Phaser.Scene {
       this.playHitSound('boss');
     }
 
-    // Spawn minion balls when hit (only 1 per hit to keep it manageable)
-    this.spawnMinions(this.bossBall.x, this.bossBall.y, 1);
+    // Spawn minion balls when hit - 2 per hit for more challenge (was 1)
+    const bossIndex = BOSS_LEVELS.indexOf(this.level);
+    const minionCount = 1 + bossIndex; // 1, 2, 3 minions for bosses 1, 2, 3
+    this.spawnMinions(this.bossBall.x, this.bossBall.y, minionCount);
 
     // Check if boss is defeated
     if (this.bossHealth <= 0) {
