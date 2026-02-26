@@ -59,6 +59,12 @@ export default class GameScene extends Phaser.Scene {
   private stateText!: Phaser.GameObjects.Text;
   private soundToggle!: Phaser.GameObjects.Image;
   private restartButton?: Phaser.GameObjects.Image;
+  
+  // Visual polish
+  private progressBar?: Phaser.GameObjects.Graphics;
+  private progressBarBg?: Phaser.GameObjects.Graphics;
+  private timerPulsing: boolean = false;
+  private displayedScore: number = 0; // For animated score counter
 
   // Audio
   private boom!: Phaser.Sound.BaseSound;
@@ -388,6 +394,9 @@ export default class GameScene extends Phaser.Scene {
 
     this.logo.destroy();
     this.startTime = Date.now();
+
+    // Create progress bar
+    this.createProgressBar();
 
     // Start level 0 after delay
     this.time.delayedCall(1000, () => {
@@ -914,10 +923,101 @@ export default class GameScene extends Phaser.Scene {
 
     this.timerText.setText(`${minutes}:${seconds}:${ms}`);
 
-    if (date.getSeconds() > TIME_INTERVALS[this.level]) {
+    // Check time remaining for pulsing effect
+    const timeLimit = TIME_INTERVALS[this.level];
+    const timeRemaining = timeLimit - date.getSeconds();
+    
+    // Pulse timer when < 5 seconds remaining
+    if (timeRemaining <= 5 && timeRemaining > 0 && !this.timerPulsing) {
+      this.startTimerPulse();
+    } else if (timeRemaining > 5 && this.timerPulsing) {
+      this.stopTimerPulse();
+    }
+
+    // Update progress bar
+    this.updateProgressBar();
+
+    if (date.getSeconds() > timeLimit) {
       this.youLost();
       this.resetTimer();
     }
+  }
+
+  private startTimerPulse(): void {
+    this.timerPulsing = true;
+    this.timerText.setColor('#ff0000');
+    
+    // Pulsing animation
+    this.tweens.add({
+      targets: this.timerText,
+      scale: 1.3,
+      duration: 300,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  }
+
+  private stopTimerPulse(): void {
+    this.timerPulsing = false;
+    this.tweens.killTweensOf(this.timerText);
+    this.timerText.setScale(1);
+    this.timerText.setColor('#000000');
+  }
+
+  private createProgressBar(): void {
+    const { width } = this.scale;
+    const barWidth = 200;
+    const barHeight = 12;
+    const barX = width / 2 - barWidth / 2;
+    const barY = 75;
+
+    // Background
+    this.progressBarBg = this.add.graphics();
+    this.progressBarBg.fillStyle(0x333333, 0.7);
+    this.progressBarBg.fillRoundedRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4, 4);
+
+    // Progress bar
+    this.progressBar = this.add.graphics();
+  }
+
+  private updateProgressBar(): void {
+    if (!this.progressBar || !this.progressBarBg) return;
+    if (this.isBossLevel) {
+      // Hide progress bar during boss fights (boss has health bar)
+      this.progressBar.clear();
+      this.progressBarBg.clear();
+      return;
+    }
+
+    const { width } = this.scale;
+    const barWidth = 200;
+    const barHeight = 12;
+    const barX = width / 2 - barWidth / 2;
+    const barY = 75;
+
+    // Count remaining balls
+    const totalBalls = LEVELS[this.level];
+    const remainingBalls = this.balls.filter(b => b && b.active).length;
+    const progress = 1 - (remainingBalls / totalBalls);
+    const currentWidth = barWidth * progress;
+
+    // Color based on progress (green -> yellow -> complete)
+    let color = 0x44ff44; // Green
+    if (progress >= 0.8) {
+      color = 0x00ff00; // Bright green when almost done
+    } else if (progress >= 0.5) {
+      color = 0xffff00; // Yellow halfway
+    }
+
+    this.progressBar.clear();
+    this.progressBar.fillStyle(color, 1);
+    this.progressBar.fillRoundedRect(barX, barY, currentWidth, barHeight, 3);
+
+    // Redraw background
+    this.progressBarBg.clear();
+    this.progressBarBg.fillStyle(0x333333, 0.7);
+    this.progressBarBg.fillRoundedRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4, 4);
   }
 
   private getElapsedSeconds(): number {
@@ -1041,6 +1141,18 @@ export default class GameScene extends Phaser.Scene {
     this.level = 0;
     this.lost = false;
     this.won = false; // Reset won state
+
+    // Reset timer pulse
+    this.stopTimerPulse();
+    this.timerPulsing = false;
+
+    // Clean up progress bar
+    if (this.progressBar) {
+      this.progressBar.clear();
+    }
+    if (this.progressBarBg) {
+      this.progressBarBg.clear();
+    }
 
     this.resetTimer();
     this.timerText.setText('00:00:00');
