@@ -347,6 +347,17 @@ export default class GameScene extends Phaser.Scene {
             // Stop power-up spawning and clean up
             this.stopPowerUpSpawning();
             
+            // Kill any remaining balls (minions, etc.)
+            this.killAllBalls();
+            
+            // Hide progress bar
+            if (this.progressBar) {
+              this.progressBar.clear();
+            }
+            if (this.progressBarBg) {
+              this.progressBarBg.clear();
+            }
+            
             this.scoreText.setX(this.scale.width / 2 - 150);
             this.scoreText.setColor('#107378');
             this.stateText.setText(' You Won!');
