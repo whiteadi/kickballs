@@ -1794,16 +1794,16 @@ export default class GameScene extends Phaser.Scene {
     // Remove boss from balls array but KEEP minions - they must be killed too!
     this.balls = this.balls.filter(b => b && b.active && b !== this.bossBall);
 
-    // Reset boss state but DON'T reset timer yet - minions still need to be killed
+    // Reset boss state
     this.isBossLevel = false;
+    
+    // ALWAYS reset timer after boss defeat - gives fresh time for minions
+    this.resetTimer();
     
     // Show message about remaining minions if any
     const remainingMinions = this.balls.filter(b => b && b.active).length;
     if (remainingMinions > 0) {
       this.showSpecialBallText(x, y - 80, `Kill ${remainingMinions} minions!`, 0, '#ff8888');
-    } else {
-      // No minions left, reset timer for next level
-      this.resetTimer();
     }
   }
 

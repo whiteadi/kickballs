@@ -18,21 +18,21 @@ export const SPEED_MULTIPLIERS = [
   1.8   // Level 12 - Final Boss (was 1.6)
 ];
 
-// Time limits per level (in seconds) - reduced by ~20%
-// Still generous enough to be fair but more challenging
+// Time limits per level (in seconds)
+// Boss levels have generous time limits since they're challenging
 export const TIME_INTERVALS = [
-  8,   // Level 1 - 4 balls (was 10)
-  11,  // Level 2 - 6 balls (was 14)
-  14,  // Level 3 - 8 balls (was 18)
-  20,  // Level 4 - Boss (was 24)
-  14,  // Level 5 - 8 balls (was 18)
-  18,  // Level 6 - 10 balls (was 22)
-  21,  // Level 7 - 12 balls (was 26)
-  26,  // Level 8 - Boss (was 32)
-  21,  // Level 9 - 12 balls (was 26)
-  24,  // Level 10 - 14 balls (was 30)
-  29,  // Level 11 - 16 balls (was 36)
-  36   // Level 12 - Final Boss (was 45)
+  8,   // Level 1 - 4 balls
+  11,  // Level 2 - 6 balls
+  14,  // Level 3 - 8 balls
+  45,  // Level 4 - BOSS (8 HP + minions, needs more time!)
+  14,  // Level 5 - 8 balls
+  18,  // Level 6 - 10 balls
+  21,  // Level 7 - 12 balls
+  55,  // Level 8 - BOSS (12 HP + minions)
+  21,  // Level 9 - 12 balls
+  24,  // Level 10 - 14 balls
+  29,  // Level 11 - 16 balls
+  70   // Level 12 - FINAL BOSS (16 HP + many minions)
 ];
 
 // Number of balls per level (12 levels with gradual progression)
