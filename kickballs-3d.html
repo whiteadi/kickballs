@@ -522,14 +522,14 @@ const GLOW_TEX = makeGlowTex(64);
 // ═══════════════════════════════════════
 //  LIGHTING — bright, vibrant
 // ═══════════════════════════════════════
-const ambLight = new THREE.AmbientLight(0x8888cc, 2.5); scene.add(ambLight);
+const ambLight = new THREE.AmbientLight(0xaaaadd, 3.5); scene.add(ambLight);
 
-const sun = new THREE.DirectionalLight(0xffffff, 4.5);
+const sun = new THREE.DirectionalLight(0xffffff, 6.0);
 sun.position.set(8, 12, 14); scene.add(sun);
 
-const rimA = new THREE.DirectionalLight(0x38bdf8, 2.2); rimA.position.set(-10, 5, -8); scene.add(rimA);
-const rimB = new THREE.DirectionalLight(0xa78bfa, 1.8); rimB.position.set(10, -3, -6); scene.add(rimB);
-const rimC = new THREE.DirectionalLight(0xfbbf24, 1.2); rimC.position.set(0, -8, 10); scene.add(rimC);
+const rimA = new THREE.DirectionalLight(0x38bdf8, 3.0); rimA.position.set(-10, 5, -8); scene.add(rimA);
+const rimB = new THREE.DirectionalLight(0xa78bfa, 2.5); rimB.position.set(10, -3, -6); scene.add(rimB);
+const rimC = new THREE.DirectionalLight(0xfbbf24, 1.8); rimC.position.set(0, -8, 10); scene.add(rimC);
 
 const fillPt = new THREE.PointLight(0x6366f1, 4.0, 50); fillPt.position.set(0, 4, 8); scene.add(fillPt);
 
@@ -684,12 +684,12 @@ const clouds=[];
 function mkCloud(x,y,z,s,spd){
   const m=new THREE.Mesh(
     new THREE.IcosahedronGeometry(s,0),
-    new THREE.MeshStandardMaterial({ color:0x181838,roughness:1,transparent:true,opacity:.5 })
+    new THREE.MeshStandardMaterial({ color:0x2a2858,roughness:1,transparent:true,opacity:.18 })
   );
   m.position.set(x,y,z); scene.add(m);
   clouds.push({ mesh:m,spd });
 }
-for(let i=0;i<12;i++) mkCloud((Math.random()-.5)*40,(Math.random()-.5)*12,-10-Math.random()*8,1.2+Math.random()*2,.0003+Math.random()*.0007);
+for(let i=0;i<10;i++) mkCloud((Math.random()-.5)*44,(Math.random()-.5)*10,-16-Math.random()*10,.8+Math.random()*1.4,.0002+Math.random()*.0005);
 
 // Ambient floating orbs
 const orbs=[];
