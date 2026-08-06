@@ -677,7 +677,8 @@ for(let i=0;i<starCount;i++){
 }
 starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starV,3));
 const starMat = new THREE.PointsMaterial({ color:0xffffff,size:.14,sizeAttenuation:true,transparent:true,opacity:.8 });
-scene.add(new THREE.Points(starGeo,starMat));
+const starPoints = new THREE.Points(starGeo,starMat);
+scene.add(starPoints);
 
 // Clouds
 const clouds=[];
@@ -1018,7 +1019,7 @@ function startLevel(idx){
   updateQuotaUI();
 
   if(isBoss){
-    bossMaxHP=10; bossHP=bossMaxHP;
+    bossMaxHP=20; bossHP=bossMaxHP;
     if(soundOn) startMusic(idx);
     showBossWarning(()=>{ doSpawnLevel(idx); setBossHP(true); });
   } else {
@@ -1099,15 +1100,13 @@ function onDown(e){
   ptr.x= ((ev.clientX-rect.left)/rect.width)*2-1;
   ptr.y=-((ev.clientY-rect.top)/rect.height)*2+1;
   rc.setFromCamera(ptr,camera);
+  // non-recursive: only test the ball mesh itself, not glow sprite children
   const meshes=balls.filter(b=>b.alive).map(b=>b.mesh);
-  const hits=rc.intersectObjects(meshes,true);
+  const hits=rc.intersectObjects(meshes,false);
   if(hits.length){
-    let m=hits[0].object;
-    while(m.parent&&!balls.find(b=>b.mesh===m)) m=m.parent;
-    const ball=balls.find(b=>b.mesh===m);
+    const ball=balls.find(b=>b.mesh===hits[0].object);
     if(ball) onBallClick(ball);
   } else {
-    // Miss feedback
     if(soundOn) SFX.miss();
     combo=0; hideCombo();
     spawnMissRipple(ev.clientX,ev.clientY);
@@ -1328,13 +1327,17 @@ function loop(ts){
     o.a+=o.spd;
     o.mesh.position.set(Math.cos(o.a)*o.r, o.y0+Math.sin(T*.35+o.a)*1.6, Math.sin(o.a)*o.r*.4-6);
   });
-  // Stars twinkle
+  // Stars twinkle + parallax
   starMat.opacity=.55+Math.sin(T*.4)*.15;
+  starPoints.position.x=lerp(starPoints.position.x, mouseX*1.2, .025);
+  starPoints.position.y=lerp(starPoints.position.y, -mouseY*.8, .025);
 
   // Theme color lerp
   curFogCol.lerp(tgtFogCol,.02);
   scene.fog.color.copy(curFogCol);
-  // backWall uses canvas texture — no color lerp needed
+  // backWall uses canvas texture — parallax offset by mouse
+  backWall.position.x=lerp(backWall.position.x, mouseX*2.5, .04);
+  backWall.position.y=lerp(backWall.position.y, -mouseY*1.5, .04);
   curFillCol.lerp(tgtFillCol,.03);
   fillPt.color.copy(curFillCol);
 
