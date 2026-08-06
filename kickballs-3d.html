@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden;background:#04040e;font-family:'Inter',system-ui,sans-serif}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0a1e;font-family:'Inter',system-ui,sans-serif}
 #canvas{display:block;position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:none}
 
 /* ─── CURSOR GLOW ─── */
@@ -214,7 +214,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#04040e;font-family:
       <div class="hl">Time</div><div class="hv" id="hv-time">--</div>
       <div id="tbar"><div id="tfill"></div></div>
     </div>
-    <div class="hc glass"><div class="hl">Best</div><div class="hv" id="hv-best">0</div></div>
+    <div class="hc glass"><div class="hl">Pops</div><div class="hv" id="hv-pops">0/15</div></div>
   </div>
 
   <div id="lvl-chip" class="glass">Level 1</div>
@@ -286,12 +286,12 @@ import * as THREE from 'three';
 //  CONSTANTS
 // ═══════════════════════════════════════
 const LEVELS = [
-  { balls:5,  time:9,  speed:1.00, name:'Warm Up',      col:0x6366f1, fog:0x0d0d22 },
-  { balls:8,  time:13, speed:1.15, name:'Getting Real', col:0x8b5cf6, fog:0x100d22 },
-  { balls:12, time:17, speed:1.30, name:'Heating Up',   col:0x06b6d4, fog:0x0a1520 },
-  { balls:16, time:24, speed:1.48, name:'Danger Zone',  col:0xf59e0b, fog:0x1a1005 },
-  { balls:20, time:32, speed:1.68, name:'Chaos',        col:0xef4444, fog:0x1a0808 },
-  { balls:0,  time:60, speed:1.85, name:'FINAL BOSS',   col:0xff2233, fog:0x1a0510, boss:true },
+  { balls:5, quota:15, time:30, speed:1.10, name:'Warm Up',      col:0x6366f1, fog:0x1a1a3e },
+  { balls:6, quota:25, time:40, speed:1.30, name:'Getting Real', col:0x8b5cf6, fog:0x1e1a3e },
+  { balls:7, quota:35, time:50, speed:1.55, name:'Heating Up',   col:0x06b6d4, fog:0x0a2030 },
+  { balls:8, quota:50, time:60, speed:1.85, name:'Danger Zone',  col:0xf59e0b, fog:0x2a1e08 },
+  { balls:9, quota:70, time:75, speed:2.20, name:'Chaos',        col:0xef4444, fog:0x2a0e0e },
+  { balls:0, quota:0,  time:90, speed:2.60, name:'FINAL BOSS',   col:0xff2233, fog:0x280a18, boss:true },
 ];
 const BOSS_IDX  = 5;
 const BASE_SPD  = 0.075;   // snappy base speed
@@ -300,11 +300,7 @@ const BOUNCE    = 0.85;    // very lively
 const MIN_SPD   = 0.025;   // enforce minimum so balls never settle
 // Arena: 16:9 ratio to fill the screen properly
 const HW=15, HH=8.5, HD=3.5;
-const LS_KEY    = 'kb3d_hi3';
-const COMBO_WIN = 1600;
-const PALETTE   = [0x6366f1,0x8b5cf6,0x06b6d4,0x10b981,0xf59e0b,0xec4899,0x3b82f6,0xf97316,0xa855f7,0x14b8a6];
-const HW=8, HH=11, HD=4;
-const LS_KEY    = 'kb3d_hi2';
+const LS_KEY    = 'kb3d_hi4';
 const COMBO_WIN = 1600;
 const PALETTE   = [0x6366f1,0x8b5cf6,0x06b6d4,0x10b981,0xf59e0b,0xec4899,0x3b82f6,0xf97316,0xa855f7,0x14b8a6];
 
@@ -383,14 +379,14 @@ try {
   }
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.shadowMap.enabled  = false; // off — saves perf and fixes dark scene on Mac
-renderer.toneMapping        = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.8;  // brighter
+renderer.shadowMap.enabled  = false;
+renderer.toneMapping        = THREE.ReinhardToneMapping;
+renderer.toneMappingExposure = 3.0;
 renderer.outputColorSpace   = THREE.SRGBColorSpace;
 
 const scene  = new THREE.Scene();
-const fogCol = new THREE.Color(0x080818);
-scene.fog    = new THREE.FogExp2(fogCol, 0.036);
+const fogCol = new THREE.Color(0x1a1a3e);
+scene.fog    = new THREE.FogExp2(fogCol, 0.018);
 
 const camera = new THREE.PerspectiveCamera(60,1,.1,200);
 const CAM_BASE = new THREE.Vector3(0,0,26);
@@ -451,7 +447,7 @@ const flGeo = new THREE.PlaneGeometry(50, 36, 30, 20);
   }
   flGeo.computeVertexNormals();
 }
-const floorMesh = new THREE.Mesh(flGeo, new THREE.MeshStandardMaterial({ color:0x0e0e24,roughness:.9,metalness:.1 }));
+const floorMesh = new THREE.Mesh(flGeo, new THREE.MeshStandardMaterial({ color:0x1a1a40,roughness:.9,metalness:.15 }));
 floorMesh.rotation.x=-Math.PI/2; floorMesh.position.y=-HH-1; scene.add(floorMesh);
 
 // Grid
@@ -470,7 +466,7 @@ const borderLine = new THREE.Line(borderGeo,borderMat); scene.add(borderLine);
 // Back wall
 const backWall = new THREE.Mesh(
   new THREE.PlaneGeometry(80, 50),
-  new THREE.MeshStandardMaterial({ color:0x0d0d20, roughness:1 })
+  new THREE.MeshStandardMaterial({ color:0x181830, roughness:1 })
 );
 backWall.position.set(0,0,-20); scene.add(backWall);
 
@@ -618,11 +614,13 @@ let timeLeft=0, timeMax=1;
 let balls=[], combo=0, lastHit=0;
 let soundOn=true, isBoss=false, bossHP=0, bossMaxHP=0, bossObj=null;
 let transitioning=false, shakeMag=0, puTimer=0;
-let scoreDisplay=0; // animated score counter
+let scoreDisplay=0;
+let waveTimer=0;
+let popsThisLevel=0; // quota counter — clear quota to advance
 
 // Theme lerp targets
-const curFogCol = new THREE.Color(0x080818);
-const tgtFogCol = new THREE.Color(0x080818);
+const curFogCol = new THREE.Color(0x1a1a3e);
+const tgtFogCol = new THREE.Color(0x1a1a3e);
 const curFillCol = new THREE.Color(0x6366f1);
 const tgtFillCol = new THREE.Color(0x6366f1);
 
@@ -743,6 +741,8 @@ function killBall(ball, clicked=false){
     score+=pts; floater(p,pts,combo>1,ball.type==='golden');
     if(combo>1) showCombo(combo);
     if(soundOn){ ball.type==='golden'?SFX.golden():SFX.pop(.78+Math.random()*.44+(lvlIdx*.04)); if(combo>=3)SFX.combo(combo); }
+    if(!isBoss) popsThisLevel++;
+    updateQuotaUI();
   }
 
   setTimeout(()=>{
@@ -763,6 +763,7 @@ function startLevel(idx){
   balls=[]; bossObj=null; transitioning=false; combo=0;
   timeLeft=ld.time; timeMax=ld.time;
   puTimer=5+Math.random()*5;
+  popsThisLevel=0; waveTimer=0;
 
   // Theme transition
   tgtFogCol.setHex(ld.fog);
@@ -778,6 +779,7 @@ function startLevel(idx){
   document.getElementById('snd-btn') && document.getElementById('snd').classList.add('visible');
   updateDots(idx);
   setBossHP(false);
+  updateQuotaUI();
 
   if(isBoss){
     bossMaxHP=10; bossHP=bossMaxHP;
@@ -831,12 +833,6 @@ function onBallClick(ball){
     }
   } else {
     killBall(ball,true);
-    setTimeout(()=>{
-      if(gs==='playing'&&!transitioning){
-        const alive=balls.filter(b=>b.alive&&b.type!=='mini');
-        if(balls.length>0&&alive.length===0) levelComplete();
-      }
-    },55);
   }
 }
 
@@ -890,9 +886,16 @@ function spawnMissRipple(cx,cy){
 //  UI HELPERS
 // ═══════════════════════════════════════
 function updateScoreUI(){
-  if(score>hiScore){ hiScore=score; localStorage.setItem(LS_KEY,hiScore); updateBestUI(); }
+  if(score>hiScore){ hiScore=score; localStorage.setItem(LS_KEY,hiScore); }
 }
-function updateBestUI(){ document.getElementById('hv-best').textContent=hiScore.toLocaleString(); }
+function updateQuotaUI(){
+  if(isBoss) return;
+  const ld=LEVELS[lvlIdx];
+  const el=document.getElementById('hv-pops');
+  if(!el) return;
+  el.textContent=popsThisLevel+'/'+ld.quota;
+  el.style.color=popsThisLevel>=ld.quota?'#4ade80':'#fff';
+}
 function updateTimerUI(){
   document.getElementById('hv-time').textContent=Math.ceil(timeLeft);
   const pct=timeLeft/timeMax;
@@ -1029,7 +1032,7 @@ function startGame(){
   resumeAC();
   score=0; scoreDisplay=0; combo=0; gs='playing';
   hideOv('ov-splash'); hideOv('ov-go'); hideOv('ov-win');
-  updateBestUI(); startLevel(0);
+  startLevel(0);
 }
 
 document.getElementById('btn-play').addEventListener('click',()=>startGame());
@@ -1045,7 +1048,6 @@ document.getElementById('snd').addEventListener('click',()=>{
 // Init
 document.getElementById('la').style.display='none';
 document.getElementById('bw').style.display='none';
-document.getElementById('hv-best').textContent=hiScore.toLocaleString();
 const hiEl=document.getElementById('hi-lbl');
 if(hiEl&&hiScore>0) hiEl.textContent=`Best: ${hiScore.toLocaleString()}`;
 
@@ -1149,12 +1151,12 @@ function loop(ts){
 
     // Trail particles (golden + fast balls)
     b.trailAcc+=dt;
-    const spd2=b.vx*b.vx+b.vy*b.vy+b.vz*b.vz;
+    const tspd2=b.vx*b.vx+b.vy*b.vy+b.vz*b.vz;
     if(b.type==='golden' && b.trailAcc>.04){
       parts.trail(px,py,pz,0xfbbf24,.14); b.trailAcc=0;
     } else if(b.type==='boss' && b.trailAcc>.06){
       parts.trail(px,py,pz,0xff3300,.18); b.trailAcc=0;
-    } else if(spd2>.007 && b.trailAcc>.1){
+    } else if(tspd2>.007 && b.trailAcc>.1){
       parts.trail(px,py,pz,b.mat.color.getHex(),.07); b.trailAcc=0;
     }
   }
@@ -1182,10 +1184,21 @@ function loop(ts){
     spotTgt.position.y=lerp(spotTgt.position.y,cy/alive.length,.055);
   }
 
-  // ── Level complete check ──
+  // ── Wave respawn + quota-based level completion ──
   if(!isBoss&&!transitioning){
+    const ld=LEVELS[lvlIdx];
+    // Quota met → advance level
+    if(popsThisLevel>=ld.quota) levelComplete();
+    // Keep arena populated: respawn when fewer than 3 alive normal balls
     const norm=balls.filter(b=>b.alive&&b.type!=='mini');
-    if(balls.length>0&&norm.length===0) levelComplete();
+    if(norm.length < 3){
+      waveTimer-=dt;
+      if(waveTimer<=0){
+        const toSpawn=ld.balls;
+        for(let i=0;i<toSpawn;i++) setTimeout(()=>{ if(gs==='playing'&&!transitioning) spawnBall('normal'); }, i*140);
+        waveTimer=Math.max(1.2, 3.0-lvlIdx*0.35);
+      }
+    } else { waveTimer=0; }
   }
 
   renderer.render(scene,camera);
