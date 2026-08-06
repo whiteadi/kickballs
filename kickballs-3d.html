@@ -1290,8 +1290,9 @@ document.getElementById('snd').addEventListener('click',()=>{
 // ── DEV: Shift+1-6 jumps to that level ──
 window.addEventListener('keydown',e=>{
   if(!e.shiftKey) return;
-  const n=parseInt(e.key);
-  if(n>=1&&n<=6){
+  const m=e.code.match(/^Digit([1-6])$/);
+  if(m){
+    const n=parseInt(m[1]);
     resumeAC();
     score=0; scoreDisplay=0; combo=0;
     hideOv('ov-splash'); hideOv('ov-go'); hideOv('ov-win');
