@@ -365,8 +365,8 @@ const MUSIC_TRACKS = [
   { bpm:140, bass:[82,82,110,82],melody:[740,932,1109,932,740,622,740,932], kick:true, wobble:true  },
   // L5 — intense 160bpm
   { bpm:160, bass:[55,65,73,65], melody:[880,1047,1319,1047,880,740,880,1047], kick:true, wobble:true },
-  // Boss — heavy 170bpm minor
-  { bpm:170, bass:[55,55,52,55], melody:[220,261,220,196,220,174,196,220], kick:true,  wobble:true  },
+  // Boss — heavy 170bpm minor, distorted
+  { bpm:170, bass:[55,52,55,49], melody:[220,196,220,185,196,220,174,196], kick:true, wobble:true  },
 ];
 
 function musicNote(freq, dur, type, vol, delay){
@@ -403,14 +403,25 @@ function scheduleMusicBeat(track){
     musicNote(bassF, spb*.85, 'triangle', .12, 0);
   }
 
-  // Kick on beat 0 and 2
+  // Kick on beat 0 and 2, heavier for boss
   if(track.kick && (beat===0||beat===2)){
     const t=AC.currentTime;
     const o=AC.createOscillator(), g=AC.createGain();
-    o.type='sine'; o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(40,t+.06);
-    g.gain.setValueAtTime(.35,t); g.gain.exponentialRampToValueAtTime(.001,t+.12);
-    o.connect(g); g.connect(master); o.start(t); o.stop(t+.15);
+    const isBossTrack=lvlIdx===5;
+    o.type='sine'; o.frequency.setValueAtTime(isBossTrack?180:150,t); o.frequency.exponentialRampToValueAtTime(30,t+.08);
+    g.gain.setValueAtTime(isBossTrack?.5:.35,t); g.gain.exponentialRampToValueAtTime(.001,t+.15);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t+.18);
     musicNodes.push(o,g);
+  }
+  // Snare on beats 1 and 3 for boss
+  if(lvlIdx===5 && (beat===1||beat===3)){
+    const buf=AC.createBuffer(1,Math.ceil(AC.sampleRate*.08),AC.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+    const src=AC.createBufferSource(), g=AC.createGain(), f=AC.createBiquadFilter();
+    f.type='bandpass'; f.frequency.value=2000; f.Q.value=.8;
+    g.gain.setValueAtTime(.22,AC.currentTime); g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.08);
+    src.buffer=buf; src.connect(f); f.connect(g); g.connect(master); src.start(); src.stop(AC.currentTime+.1);
+    musicNodes.push(src,g,f);
   }
 
   // Hi-hat on every beat
@@ -1019,7 +1030,7 @@ function startLevel(idx){
   updateQuotaUI();
 
   if(isBoss){
-    bossMaxHP=20; bossHP=bossMaxHP;
+    bossMaxHP=30; bossHP=bossMaxHP;
     if(soundOn) startMusic(idx);
     showBossWarning(()=>{ doSpawnLevel(idx); setBossHP(true); });
   } else {
@@ -1047,24 +1058,39 @@ function doSpawnLevel(idx){
   }
 }
 
+let lastClickTime=0; // global click gate
+
 function onBallClick(ball){
   if(gs!=='playing'||!ball.alive||transitioning) return;
   const now=performance.now();
-  if(ball._lastClick && now-ball._lastClick < 150) return; // debounce double-fire
-  ball._lastClick=now;
+  if(now-lastClickTime < 80) return; // global 80ms gate — blocks any double-fire
+  lastClickTime=now;
   if(ball.type==='boss'){
     bossHP--;
     setBossHP(true);
     if(soundOn) SFX.boss_hit();
     shakeMag=.22;
-    // hit flash
-    ball.mat.emissive.setHex(0xffffff); ball.mat.emissiveIntensity=1.2;
-    // HP bar shake
-    document.getElementById('bhpt').style.transform='translateX(4px)';
+    ball.mat.emissive.setHex(0xffffff); ball.mat.emissiveIntensity=1.5;
+    document.getElementById('bhpt').style.transform='translateX(5px)';
     setTimeout(()=>{ document.getElementById('bhpt').style.transform=''; },80);
-    setTimeout(()=>{ ball.mat.emissive.setHex(0xff2200); ball.mat.emissiveIntensity=.45; },100);
-    spawnBall('mini');
-    parts.burst(ball.mesh.position.x,ball.mesh.position.y,ball.mesh.position.z,0xff4400,16);
+    setTimeout(()=>{ if(ball.mat) { ball.mat.emissive.setHex(0xff2200); ball.mat.emissiveIntensity=.45; }},100);
+
+    // Rage phase thresholds — 66% and 33%
+    const pct=bossHP/bossMaxHP;
+    const miniCount = pct<.33 ? 4 : pct<.66 ? 2 : 1;
+    for(let i=0;i<miniCount;i++) setTimeout(()=>spawnBall('mini'),i*120);
+
+    // Rage mode: boss speeds up visually + screen pulse
+    if(bossObj){
+      const rage = pct<.33 ? 2.2 : pct<.66 ? 1.5 : 1.0;
+      bossObj.rx = (Math.random()-.5)*.05*rage*2;
+      bossObj.rz = (Math.random()-.5)*.05*rage*2;
+      bossObj.vx *= 1.04; bossObj.vy *= 1.02; bossObj.vz *= 1.04;
+    }
+    if(pct<.33 && bossHP%3===0) flashScreen('#ff0000',.18);
+    else if(pct<.66 && bossHP%5===0) flashScreen('#ff4400',.12);
+
+    parts.burst(ball.mesh.position.x,ball.mesh.position.y,ball.mesh.position.z,0xff4400,pct<.33?28:16);
     const pts=Math.max(30,30*Math.min(combo,5));
     score+=pts; combo=Math.min(combo+1,12); lastHit=performance.now();
     floater(ball.mesh.position,pts,combo>1,false);
@@ -1074,7 +1100,7 @@ function onBallClick(ball){
       score+=500;
       killBall(ball,false);
       setBossHP(false);
-      flashScreen('#ff2200',.38);
+      flashScreen('#ff2200',.5);
       setTimeout(()=>levelComplete(),850);
     }
   } else {
@@ -1325,7 +1351,16 @@ function loop(ts){
 
   // ── Always: environment ──
   clouds.forEach(c=>{ c.mesh.position.x+=c.spd; c.mesh.rotation.y+=.0007; if(c.mesh.position.x>24) c.mesh.position.x=-24; });
-  fillPt.intensity=1.7+Math.sin(T*.65)*.55;
+  if(isBoss && bossObj){
+    const rage=bossHP/bossMaxHP;
+    // Fill light flickers red as HP drops
+    fillPt.intensity=2.5+Math.sin(T*(3+( 1-rage)*8))*(1+(1-rage)*2);
+    fillPt.color.setHSL(0, 1, .35+rage*.2); // red-hot at low HP
+    // Border pulses
+    borderMat.opacity=.3+Math.abs(Math.sin(T*(2+(1-rage)*4)))*.5;
+  } else {
+    fillPt.intensity=1.7+Math.sin(T*.65)*.55;
+  }
   orbs.forEach(o=>{
     o.a+=o.spd;
     o.mesh.position.set(Math.cos(o.a)*o.r, o.y0+Math.sin(T*.35+o.a)*1.6, Math.sin(o.a)*o.r*.4-6);
