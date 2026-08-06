@@ -286,17 +286,23 @@ import * as THREE from 'three';
 //  CONSTANTS
 // ═══════════════════════════════════════
 const LEVELS = [
-  { balls:4,  time:10, speed:1.00, name:'Warm Up',      col:0x6366f1, fog:0x080818 },
-  { balls:6,  time:14, speed:1.10, name:'Getting Real', col:0x8b5cf6, fog:0x0a0818 },
-  { balls:9,  time:18, speed:1.20, name:'Heating Up',   col:0x06b6d4, fog:0x04101a },
-  { balls:13, time:26, speed:1.30, name:'Danger Zone',  col:0xf59e0b, fog:0x120a04 },
-  { balls:17, time:36, speed:1.40, name:'Chaos',        col:0xef4444, fog:0x140404 },
-  { balls:0,  time:65, speed:1.50, name:'FINAL BOSS',   col:0xff2233, fog:0x1a0408, boss:true },
+  { balls:5,  time:9,  speed:1.00, name:'Warm Up',      col:0x6366f1, fog:0x0d0d22 },
+  { balls:8,  time:13, speed:1.15, name:'Getting Real', col:0x8b5cf6, fog:0x100d22 },
+  { balls:12, time:17, speed:1.30, name:'Heating Up',   col:0x06b6d4, fog:0x0a1520 },
+  { balls:16, time:24, speed:1.48, name:'Danger Zone',  col:0xf59e0b, fog:0x1a1005 },
+  { balls:20, time:32, speed:1.68, name:'Chaos',        col:0xef4444, fog:0x1a0808 },
+  { balls:0,  time:60, speed:1.85, name:'FINAL BOSS',   col:0xff2233, fog:0x1a0510, boss:true },
 ];
 const BOSS_IDX  = 5;
-const BASE_SPD  = 0.054;
-const GRAVITY   = -0.0017;
-const BOUNCE    = 0.75;
+const BASE_SPD  = 0.075;   // snappy base speed
+const GRAVITY   = -0.0005; // very low — balls mostly float & bounce, not fall
+const BOUNCE    = 0.85;    // very lively
+const MIN_SPD   = 0.025;   // enforce minimum so balls never settle
+// Arena: 16:9 ratio to fill the screen properly
+const HW=15, HH=8.5, HD=3.5;
+const LS_KEY    = 'kb3d_hi3';
+const COMBO_WIN = 1600;
+const PALETTE   = [0x6366f1,0x8b5cf6,0x06b6d4,0x10b981,0xf59e0b,0xec4899,0x3b82f6,0xf97316,0xa855f7,0x14b8a6];
 const HW=8, HH=11, HD=4;
 const LS_KEY    = 'kb3d_hi2';
 const COMBO_WIN = 1600;
@@ -377,18 +383,17 @@ try {
   }
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.shadowMap.enabled  = true;
-renderer.shadowMap.type     = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled  = false; // off — saves perf and fixes dark scene on Mac
 renderer.toneMapping        = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.8;  // brighter
 renderer.outputColorSpace   = THREE.SRGBColorSpace;
 
 const scene  = new THREE.Scene();
 const fogCol = new THREE.Color(0x080818);
 scene.fog    = new THREE.FogExp2(fogCol, 0.036);
 
-const camera = new THREE.PerspectiveCamera(50,1,.1,200);
-const CAM_BASE = new THREE.Vector3(0,1.5,23);
+const camera = new THREE.PerspectiveCamera(60,1,.1,200);
+const CAM_BASE = new THREE.Vector3(0,0,26);
 camera.position.copy(CAM_BASE);
 camera.lookAt(0,0,0);
 
@@ -415,24 +420,21 @@ function makeGlowTex(size=64){
 const GLOW_TEX = makeGlowTex(64);
 
 // ═══════════════════════════════════════
-//  LIGHTING
+//  LIGHTING — bright, vibrant
 // ═══════════════════════════════════════
-const ambLight = new THREE.AmbientLight(0x111128,1.4); scene.add(ambLight);
+const ambLight = new THREE.AmbientLight(0x8888cc, 2.5); scene.add(ambLight);
 
-const sun = new THREE.DirectionalLight(0xffffff,2.8);
-sun.position.set(6,15,10); sun.castShadow=true;
-sun.shadow.mapSize.set(1024,1024);
-sun.shadow.camera.left=sun.shadow.camera.bottom=-18;
-sun.shadow.camera.right=sun.shadow.camera.top=18;
-sun.shadow.bias=-0.001; scene.add(sun);
+const sun = new THREE.DirectionalLight(0xffffff, 4.5);
+sun.position.set(8, 12, 14); scene.add(sun);
 
-const rimA = new THREE.DirectionalLight(0x38bdf8,1.1); rimA.position.set(-8,4,-12); scene.add(rimA);
-const rimB = new THREE.DirectionalLight(0xa78bfa,.7); rimB.position.set(8,-2,-8); scene.add(rimB);
+const rimA = new THREE.DirectionalLight(0x38bdf8, 2.2); rimA.position.set(-10, 5, -8); scene.add(rimA);
+const rimB = new THREE.DirectionalLight(0xa78bfa, 1.8); rimB.position.set(10, -3, -6); scene.add(rimB);
+const rimC = new THREE.DirectionalLight(0xfbbf24, 1.2); rimC.position.set(0, -8, 10); scene.add(rimC);
 
-const fillPt = new THREE.PointLight(0x6366f1,2.2,30); fillPt.position.set(0,6,-2); scene.add(fillPt);
+const fillPt = new THREE.PointLight(0x6366f1, 4.0, 50); fillPt.position.set(0, 4, 8); scene.add(fillPt);
 
-const spot = new THREE.SpotLight(0xa78bfa,3.5,36,Math.PI/5,.5,1);
-spot.position.set(0,15,6); scene.add(spot);
+const spot = new THREE.SpotLight(0xffffff, 5, 60, Math.PI/4, .6, 1);
+spot.position.set(0, 18, 12); scene.add(spot);
 const spotTgt = new THREE.Object3D(); scene.add(spotTgt); spot.target=spotTgt;
 
 // ═══════════════════════════════════════
@@ -440,71 +442,71 @@ const spotTgt = new THREE.Object3D(); scene.add(spotTgt); spot.target=spotTgt;
 // ═══════════════════════════════════════
 
 // Floor
-const flGeo = new THREE.PlaneGeometry(36,36,26,26);
+const flGeo = new THREE.PlaneGeometry(50, 36, 30, 20);
 {
   const p=flGeo.attributes.position;
   for(let i=0;i<p.count;i++){
     const x=p.getX(i),z=p.getZ(i);
-    if(Math.abs(x)>.8||Math.abs(z)>.8) p.setY(i,Math.sin(x*.5)*Math.cos(z*.42)*.55-1.3);
+    if(Math.abs(x)>1||Math.abs(z)>1) p.setY(i,Math.sin(x*.3)*Math.cos(z*.35)*.5-1.2);
   }
   flGeo.computeVertexNormals();
 }
-const floorMesh = new THREE.Mesh(flGeo, new THREE.MeshStandardMaterial({ color:0x0b0b1c,roughness:.93,metalness:.07 }));
-floorMesh.rotation.x=-Math.PI/2; floorMesh.position.y=-HH-.5; floorMesh.receiveShadow=true; scene.add(floorMesh);
+const floorMesh = new THREE.Mesh(flGeo, new THREE.MeshStandardMaterial({ color:0x0e0e24,roughness:.9,metalness:.1 }));
+floorMesh.rotation.x=-Math.PI/2; floorMesh.position.y=-HH-1; scene.add(floorMesh);
 
-// Hex grid overlay
-const gridH = new THREE.GridHelper(36,18,0x191932,0x111124); gridH.position.y=-HH-.47; scene.add(gridH);
+// Grid
+const gridH = new THREE.GridHelper(50, 24, 0x222248, 0x16163a); gridH.position.y=-HH-.98; scene.add(gridH);
 
-// Arena border lines (color updated per level)
+// Arena border — glowing frame that matches the play area
 const borderPts = [
   new THREE.Vector3(-HW,-HH,0), new THREE.Vector3(HW,-HH,0),
   new THREE.Vector3(HW,HH,0),   new THREE.Vector3(-HW,HH,0),
   new THREE.Vector3(-HW,-HH,0),
 ];
 const borderGeo = new THREE.BufferGeometry().setFromPoints(borderPts);
-const borderMat = new THREE.LineBasicMaterial({ color:0x6366f1,transparent:true,opacity:.3 });
+const borderMat = new THREE.LineBasicMaterial({ color:0x6366f1,transparent:true,opacity:.45 });
 const borderLine = new THREE.Line(borderGeo,borderMat); scene.add(borderLine);
 
 // Back wall
 const backWall = new THREE.Mesh(
-  new THREE.PlaneGeometry(60,38),
-  new THREE.MeshStandardMaterial({ color:0x08081e,roughness:1 })
+  new THREE.PlaneGeometry(80, 50),
+  new THREE.MeshStandardMaterial({ color:0x0d0d20, roughness:1 })
 );
-backWall.position.set(0,0,-17); scene.add(backWall);
+backWall.position.set(0,0,-20); scene.add(backWall);
 
-// Stars (animated twinkle via opacity)
+// Stars
 const starCount = 800;
 const starGeo = new THREE.BufferGeometry();
 const starV=[],starPhase=[];
 for(let i=0;i<starCount;i++){
-  starV.push((Math.random()-.5)*110,(Math.random()-.5)*55,-20-Math.random()*50);
+  starV.push((Math.random()-.5)*160,(Math.random()-.5)*80,-22-Math.random()*60);
   starPhase.push(Math.random()*Math.PI*2);
 }
 starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starV,3));
-const starMat = new THREE.PointsMaterial({ color:0xffffff,size:.1,sizeAttenuation:true,transparent:true,opacity:.65 });
+const starMat = new THREE.PointsMaterial({ color:0xffffff,size:.14,sizeAttenuation:true,transparent:true,opacity:.8 });
 scene.add(new THREE.Points(starGeo,starMat));
 
-// Clouds (low-poly icospheres drifting)
+// Clouds
 const clouds=[];
 function mkCloud(x,y,z,s,spd){
   const m=new THREE.Mesh(
     new THREE.IcosahedronGeometry(s,0),
-    new THREE.MeshStandardMaterial({ color:0x111330,roughness:1,transparent:true,opacity:.48 })
+    new THREE.MeshStandardMaterial({ color:0x181838,roughness:1,transparent:true,opacity:.5 })
   );
   m.position.set(x,y,z); scene.add(m);
   clouds.push({ mesh:m,spd });
 }
-for(let i=0;i<10;i++) mkCloud((Math.random()-.5)*28,(Math.random()-.5)*10,-8-Math.random()*8,1+Math.random()*1.7,.0003+Math.random()*.0006);
+for(let i=0;i<12;i++) mkCloud((Math.random()-.5)*40,(Math.random()-.5)*12,-10-Math.random()*8,1.2+Math.random()*2,.0003+Math.random()*.0007);
 
 // Ambient floating orbs
 const orbs=[];
-for(let i=0;i<14;i++){
+for(let i=0;i<16;i++){
   const m=new THREE.Mesh(
-    new THREE.SphereGeometry(.065,5,5),
-    new THREE.MeshBasicMaterial({ color:[0x6366f1,0xa78bfa,0x38bdf8,0xfbbf24][i%4],transparent:true,opacity:.4 })
+    new THREE.SphereGeometry(.08,5,5),
+    new THREE.MeshBasicMaterial({ color:[0x6366f1,0xa78bfa,0x38bdf8,0xfbbf24][i%4],transparent:true,opacity:.5 })
   );
   scene.add(m);
-  orbs.push({ mesh:m,a:i/14*Math.PI*2,r:7+Math.random()*5,spd:.003+Math.random()*.003,y0:(Math.random()-.5)*9 });
+  orbs.push({ mesh:m,a:i/16*Math.PI*2,r:14+Math.random()*6,spd:.003+Math.random()*.003,y0:(Math.random()-.5)*7 });
 }
 
 // ═══════════════════════════════════════
@@ -585,15 +587,26 @@ const parts = new BurstParticles(600);
 const rings = new Rings();
 
 // ═══════════════════════════════════════
-//  BALL GEOMETRY
+//  BALL GEOMETRY — varied sizes + archetypes
 // ═══════════════════════════════════════
-const GEO_NORM   = new THREE.IcosahedronGeometry(.72,1);
+// We create balls with random size variation (0.5–1.0 radius)
+// and 4 archetypes: shiny, matte, neon, chunky
 const GEO_BOSS   = new THREE.IcosahedronGeometry(1.75,2);
 const GEO_MINI   = new THREE.IcosahedronGeometry(.4,1);
-const GEO_GOLDEN = new THREE.IcosahedronGeometry(.78,1);
+const GEO_GOLDEN = new THREE.IcosahedronGeometry(.8,1);
 
-function mkMat(col,emv=0,rough=.35,metal=.6){
-  return new THREE.MeshStandardMaterial({ color:col,emissive:emv,emissiveIntensity:.45,roughness:rough,metalness:metal });
+// Cache a range of sizes
+const GEO_SIZES = [.5,.6,.65,.72,.78,.88,.95].map(r=>new THREE.IcosahedronGeometry(r,1));
+
+const ARCHETYPES = [
+  { rough:.12, metal:.9,  emvStr:.0  },  // shiny metallic
+  { rough:.85, metal:.05, emvStr:.0  },  // matte clay
+  { rough:.2,  metal:.6,  emvStr:.5  },  // neon glow
+  { rough:.4,  metal:.5,  emvStr:.0  },  // standard
+];
+
+function mkMat(col,emv=0,rough=.35,metal=.6,emvInt=.45){
+  return new THREE.MeshStandardMaterial({ color:col,emissive:emv,emissiveIntensity:emvInt,roughness:rough,metalness:metal });
 }
 
 // ═══════════════════════════════════════
@@ -629,46 +642,77 @@ window.addEventListener('mouseup',()=>curEl.classList.remove('active'));
 function spawnBall(type='normal', atPos=null){
   const ld=LEVELS[lvlIdx];
   const isBossT=type==='boss', isGold=type==='golden', isMini=type==='mini';
-  const geo = isBossT?GEO_BOSS:isMini?GEO_MINI:isGold?GEO_GOLDEN:GEO_NORM;
-  const r   = isBossT?1.75:isMini?.4:.72;
-  const col = isGold?0xfbbf24:isBossT?0xdc2626:PALETTE[Math.floor(Math.random()*PALETTE.length)];
-  const mat = mkMat(col, isGold?0xfbbf24:isBossT?0xff2200:0, isGold?.1:.35, isGold?.92:isBossT?.78:.58);
 
-  const mesh = new THREE.Mesh(geo,mat); mesh.castShadow=true;
+  // Pick random size and archetype for normal balls
+  const sizeIdx = Math.floor(Math.random()*GEO_SIZES.length);
+  const geo  = isBossT ? GEO_BOSS : isMini ? GEO_MINI : isGold ? GEO_GOLDEN : GEO_SIZES[sizeIdx];
+  const r    = isBossT ? 1.75 : isMini ? .4 : isGold ? .8 : [.5,.6,.65,.72,.78,.88,.95][sizeIdx];
 
-  const pos = atPos ? atPos.clone() : new THREE.Vector3(
-    (Math.random()-.5)*HW*1.5, (Math.random()-.5)*HH*.7+1, (Math.random()-.5)*HD*.8
+  const arch = ARCHETYPES[Math.floor(Math.random()*ARCHETYPES.length)];
+  const col  = isGold ? 0xfbbf24 : isBossT ? 0xdc2626 : PALETTE[Math.floor(Math.random()*PALETTE.length)];
+  const emv  = isGold ? 0xfbbf24 : isBossT ? 0xff2200 : arch.emvStr>.0 ? col : 0;
+  const mat  = mkMat(col, emv,
+    isGold ? .1 : isBossT ? .15 : arch.rough,
+    isGold ? .92 : isBossT ? .8 : arch.metal,
+    arch.emvStr
   );
+
+  const mesh = new THREE.Mesh(geo, mat); mesh.castShadow=true;
+
+  // ── Edge-spawn: balls come from the arena edges, aimed inward ──
+  let pos, vx, vy, vz;
+  const spd = BASE_SPD * ld.speed * (isMini?.72:1) * (isBossT?.55:1) * (1+Math.random()*.3);
+
+  if(atPos){
+    pos = atPos.clone();
+    const θ=Math.random()*Math.PI*2, φ=(Math.random()-.3)*Math.PI;
+    vx=Math.cos(θ)*Math.cos(φ)*spd; vy=Math.cos(φ)*spd*.7+.02; vz=Math.sin(θ)*Math.cos(φ)*spd*.4;
+  } else if(isBossT){
+    // Boss starts centre
+    pos=new THREE.Vector3(0,2,0);
+    const θ=Math.random()*Math.PI*2;
+    vx=Math.cos(θ)*spd*.5; vy=spd*.3+.02; vz=Math.sin(θ)*spd*.3;
+  } else {
+    // Pick a random edge: left, right, top, bottom
+    const edge=Math.floor(Math.random()*4);
+    switch(edge){
+      case 0: pos=new THREE.Vector3(-HW+r,  (Math.random()-.3)*HH*.8, (Math.random()-.5)*HD*.7);
+              vx= spd*(.8+Math.random()*.4); vy=(Math.random()*.5-.15)*spd; vz=(Math.random()-.5)*spd*.35; break;
+      case 1: pos=new THREE.Vector3( HW-r,  (Math.random()-.3)*HH*.8, (Math.random()-.5)*HD*.7);
+              vx=-spd*(.8+Math.random()*.4); vy=(Math.random()*.5-.15)*spd; vz=(Math.random()-.5)*spd*.35; break;
+      case 2: pos=new THREE.Vector3((Math.random()-.5)*HW*1.4, HH-r,  (Math.random()-.5)*HD*.7);
+              vy=-spd*(.7+Math.random()*.4); vx=(Math.random()-.5)*spd*.6; vz=(Math.random()-.5)*spd*.3; break;
+      default:pos=new THREE.Vector3((Math.random()-.5)*HW*1.4, -HH*0.4, (Math.random()-.5)*HD*.7);
+              vy= spd*(.9+Math.random()*.5); vx=(Math.random()-.5)*spd*.7; vz=(Math.random()-.5)*spd*.3; break;
+    }
+  }
   mesh.position.copy(pos);
 
-  const spd=BASE_SPD*ld.speed*(isMini?.72:1)*(isBossT?.58:1);
-  const θ=Math.random()*Math.PI*2, φ=(Math.random()-.5)*.75;
-  const vx=Math.cos(θ)*Math.cos(φ)*spd*(.88+Math.random()*.24);
-  const vy=Math.sin(φ)*spd*.8+.016;
-  const vz=Math.sin(θ)*Math.cos(φ)*spd*.38*(.8+Math.random()*.4);
-
-  // Glow point light on ball
+  // Glow point light on special balls
   let glow=null;
   if(isGold){ glow=new THREE.PointLight(0xfbbf24,2.8,5.5); mesh.add(glow); }
   if(isBossT){ glow=new THREE.PointLight(0xff3300,4.5,11); mesh.add(glow); }
+  // Neon archetype gets a subtle glow too
+  if(!isGold && !isBossT && arch.emvStr>.0){
+    glow=new THREE.PointLight(col,.8,3.5); mesh.add(glow);
+  }
 
-  // Fake bloom sprite behind ball
+  // Glow billboard sprite
+  const spriteSize = isBossT?5.5:isGold?3:r*3.2;
   const glowSprite = new THREE.Mesh(
-    new THREE.PlaneGeometry(isBossT?5:isGold?2.8:2.2, isBossT?5:isGold?2.8:2.2),
-    new THREE.MeshBasicMaterial({
-      map:GLOW_TEX, color:col, transparent:true, opacity:isGold?.6:isBossT?.5:.35,
-      blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide
-    })
+    new THREE.PlaneGeometry(spriteSize,spriteSize),
+    new THREE.MeshBasicMaterial({ map:GLOW_TEX, color:col, transparent:true,
+      opacity:isGold?.55:isBossT?.45:arch.emvStr>.0?.35:.22,
+      blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide })
   );
-  glowSprite.position.z=-.1;
-  mesh.add(glowSprite);
+  glowSprite.position.z=-.15; mesh.add(glowSprite);
 
   mesh.scale.setScalar(.01); scene.add(mesh);
 
   const ball={ mesh,mat,type,vx,vy,vz,r,
-    rx:(Math.random()-.5)*.042, rz:(Math.random()-.5)*.042,
+    rx:(Math.random()-.5)*.05, rz:(Math.random()-.5)*.05,
     glow, glowSprite, alive:true, spawnT:0, dieT:-1,
-    squishX:1, squishY:1, squishZ:1,  // for bounce squish
+    squishX:1, squishY:1, squishZ:1,
     trailAcc:0,
   };
   if(isBossT){ ball.hp=bossMaxHP; bossObj=ball; }
@@ -749,11 +793,11 @@ function doSpawnLevel(idx){
   const ld=LEVELS[idx];
   if(isBoss){
     spawnBall('boss');
-    for(let i=0;i<3;i++) setTimeout(()=>spawnBall('mini'),350+i*200);
+    for(let i=0;i<5;i++) setTimeout(()=>spawnBall('mini'),350+i*160);
   } else {
     for(let i=0;i<ld.balls;i++){
-      const isGold=idx>=1 && i===1;
-      setTimeout(()=>spawnBall(isGold?'golden':'normal'),i*125);
+      const isGold=(idx>=1&&i===1)||(idx>=3&&i===Math.floor(ld.balls*.6));
+      setTimeout(()=>spawnBall(isGold?'golden':'normal'),i*110);
     }
   }
 }
@@ -1019,7 +1063,7 @@ function loop(ts){
   const dt=Math.min((ts-last)/1000,.05); last=ts; const T=ts*.001;
 
   // ── Always: environment ──
-  clouds.forEach(c=>{ c.mesh.position.x+=c.spd; c.mesh.rotation.y+=.0007; if(c.mesh.position.x>17) c.mesh.position.x=-17; });
+  clouds.forEach(c=>{ c.mesh.position.x+=c.spd; c.mesh.rotation.y+=.0007; if(c.mesh.position.x>24) c.mesh.position.x=-24; });
   fillPt.intensity=1.7+Math.sin(T*.65)*.55;
   orbs.forEach(o=>{
     o.a+=o.spd;
@@ -1078,12 +1122,20 @@ function loop(ts){
 
     // Bounce + squish
     const px=b.mesh.position.x, py=b.mesh.position.y, pz=b.mesh.position.z;
-    if(px>HW-b.r){ b.mesh.position.x=HW-b.r; b.vx*=-BOUNCE; b.squishX=.65; b.squishY=1.25; }
-    if(px<-HW+b.r){ b.mesh.position.x=-HW+b.r; b.vx*=-BOUNCE; b.squishX=.65; b.squishY=1.25; }
-    if(py>HH-b.r){ b.mesh.position.y=HH-b.r; b.vy*=-BOUNCE; b.squishY=.65; b.squishX=1.25; }
-    if(py<-HH+b.r){ b.mesh.position.y=-HH+b.r; b.vy*=-BOUNCE; b.squishY=.65; b.squishX=1.25; if(Math.abs(b.vy)<.012) b.vy=.018; }
-    if(pz>HD-b.r){ b.mesh.position.z=HD-b.r; b.vz*=-BOUNCE; b.squishZ=.65; }
-    if(pz<-HD+b.r){ b.mesh.position.z=-HD+b.r; b.vz*=-BOUNCE; b.squishZ=.65; }
+    if(px>HW-b.r){ b.mesh.position.x=HW-b.r; b.vx*=-BOUNCE; b.squishX=.6; b.squishY=1.3; }
+    if(px<-HW+b.r){ b.mesh.position.x=-HW+b.r; b.vx*=-BOUNCE; b.squishX=.6; b.squishY=1.3; }
+    if(py>HH-b.r){ b.mesh.position.y=HH-b.r; b.vy*=-BOUNCE; b.squishY=.6; b.squishX=1.3; }
+    if(py<-HH+b.r){ b.mesh.position.y=-HH+b.r; b.vy*=-BOUNCE; b.squishY=.6; b.squishX=1.3; if(Math.abs(b.vy)<.012) b.vy=.022; }
+    if(pz>HD-b.r){ b.mesh.position.z=HD-b.r; b.vz*=-BOUNCE; b.squishZ=.6; }
+    if(pz<-HD+b.r){ b.mesh.position.z=-HD+b.r; b.vz*=-BOUNCE; b.squishZ=.6; }
+
+    // ── Minimum speed: never let balls settle ──
+    const spd2=b.vx*b.vx+b.vy*b.vy+b.vz*b.vz;
+    if(spd2 < MIN_SPD*MIN_SPD){
+      const boost = MIN_SPD / (Math.sqrt(spd2)||.001);
+      b.vx*=boost; b.vz*=boost;
+      if(Math.abs(b.vy)<MIN_SPD*.6) b.vy=MIN_SPD*.8*(Math.random()>.5?1:-1);
+    }
 
     // Squish spring back
     b.squishX=spring(b.squishX,1,.18); b.squishY=spring(b.squishY,1,.18); b.squishZ=spring(b.squishZ,1,.18);
