@@ -1287,6 +1287,19 @@ document.getElementById('snd').addEventListener('click',()=>{
   document.getElementById('snd').textContent=soundOn?'🔊':'🔇';
 });
 
+// ── DEV: Shift+1-6 jumps to that level ──
+window.addEventListener('keydown',e=>{
+  if(!e.shiftKey) return;
+  const n=parseInt(e.key);
+  if(n>=1&&n<=6){
+    resumeAC();
+    score=0; scoreDisplay=0; combo=0;
+    hideOv('ov-splash'); hideOv('ov-go'); hideOv('ov-win');
+    gs='playing';
+    startLevel(n-1);
+  }
+});
+
 // Init
 document.getElementById('la').style.display='none';
 document.getElementById('bw').style.display='none';
