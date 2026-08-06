@@ -1049,6 +1049,9 @@ function doSpawnLevel(idx){
 
 function onBallClick(ball){
   if(gs!=='playing'||!ball.alive||transitioning) return;
+  const now=performance.now();
+  if(ball._lastClick && now-ball._lastClick < 150) return; // debounce double-fire
+  ball._lastClick=now;
   if(ball.type==='boss'){
     bossHP--;
     setBossHP(true);
@@ -1113,7 +1116,7 @@ function onDown(e){
   }
 }
 canvas.addEventListener('pointerdown',onDown);
-canvas.addEventListener('touchstart',e=>{ e.preventDefault(); onDown(e); },{passive:false});
+// touchstart removed — pointerdown already handles touch, dual-firing was dealing double damage
 
 function spawnMissRipple(cx,cy){
   const el=document.createElement('div'); el.className='mripple';
@@ -1329,15 +1332,15 @@ function loop(ts){
   });
   // Stars twinkle + parallax
   starMat.opacity=.55+Math.sin(T*.4)*.15;
-  starPoints.position.x=lerp(starPoints.position.x, mouseX*1.2, .025);
-  starPoints.position.y=lerp(starPoints.position.y, -mouseY*.8, .025);
+  starPoints.position.x=lerp(starPoints.position.x, mouseX*3.5, .025);
+  starPoints.position.y=lerp(starPoints.position.y, -mouseY*2.5, .025);
 
   // Theme color lerp
   curFogCol.lerp(tgtFogCol,.02);
   scene.fog.color.copy(curFogCol);
   // backWall uses canvas texture — parallax offset by mouse
-  backWall.position.x=lerp(backWall.position.x, mouseX*2.5, .04);
-  backWall.position.y=lerp(backWall.position.y, -mouseY*1.5, .04);
+  backWall.position.x=lerp(backWall.position.x, mouseX*7, .04);
+  backWall.position.y=lerp(backWall.position.y, -mouseY*5, .04);
   curFillCol.lerp(tgtFillCol,.03);
   fillPt.color.copy(curFillCol);
 
