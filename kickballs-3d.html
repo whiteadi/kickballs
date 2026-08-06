@@ -382,7 +382,11 @@ function musicNote(freq, dur, type, vol, delay){
 
 function scheduleMusicBeat(track){
   if(!soundOn) return;
-  const spb = 60/track.bpm;  // seconds per beat
+  // Boss: BPM escalates from 170 → 220 as HP drops
+  const dynamicBpm = (isBoss && bossMaxHP>0)
+    ? track.bpm + (1-bossHP/bossMaxHP)*50
+    : track.bpm;
+  const spb = 60/dynamicBpm;  // seconds per beat
   const beat = musicBeat % track.bass.length;
   const mbeat = musicBeat % track.melody.length;
 
@@ -443,8 +447,7 @@ function scheduleMusicBeat(track){
   }
 
   musicBeat++;
-  const nextSpb = 60/track.bpm;
-  musicTimerId = setTimeout(()=>scheduleMusicBeat(track), nextSpb*1000);
+  musicTimerId = setTimeout(()=>scheduleMusicBeat(track), spb*1000);
 }
 
 function startMusic(lvlIdx){
@@ -924,7 +927,9 @@ function spawnBall(type='normal', atPos=null){
         new THREE.TorusGeometry(2.2+ri*.6, .06, 4, 24),
         new THREE.MeshBasicMaterial({ color:[0xff2200,0xff6600,0xffaa00][ri], transparent:true, opacity:.7 })
       );
-      ring.rotation.x=ri*Math.PI/3; mesh.add(ring); bossRings.push(ring);
+      ring.rotation.x=ri*Math.PI/3;
+      ring.raycast=()=>{}; // never intercept clicks
+      mesh.add(ring); bossRings.push(ring);
     }
     // Dark aura (large glow overlay)
     const aura=new THREE.Mesh(
@@ -932,7 +937,7 @@ function spawnBall(type='normal', atPos=null){
       new THREE.MeshBasicMaterial({ map:GLOW_TEX, color:0x880000, transparent:true,
         opacity:.6, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide })
     );
-    aura.position.z=-.2; mesh.add(aura);
+    aura.position.z=-.2; aura.raycast=()=>{}; mesh.add(aura);
   }
 
   const spriteSize = isBossT?8 : isGold?3 : r*3.2;
@@ -942,7 +947,7 @@ function spawnBall(type='normal', atPos=null){
       opacity:isGold?.55:isBossT?.6:isSplit?.5:isBomb?.5:isGhost?.4:arch.emvStr>.0?.35:.22,
       blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide })
   );
-  glowSprite.position.z=-.15; mesh.add(glowSprite);
+  glowSprite.position.z=-.15; glowSprite.raycast=()=>{}; mesh.add(glowSprite);
 
   mesh.scale.setScalar(.01); scene.add(mesh);
 
@@ -1178,10 +1183,16 @@ function updateScoreUI(){
   if(score>hiScore){ hiScore=score; localStorage.setItem(LS_KEY,hiScore); }
 }
 function updateQuotaUI(){
-  if(isBoss) return;
-  const ld=LEVELS[lvlIdx];
   const el=document.getElementById('hv-pops');
   if(!el) return;
+  if(isBoss){
+    el.textContent='BOSS';
+    el.style.color='#ef4444';
+    el.style.fontSize='13px';
+    return;
+  }
+  el.style.fontSize='';
+  const ld=LEVELS[lvlIdx];
   el.textContent=popsThisLevel+'/'+ld.quota;
   el.style.color=popsThisLevel>=ld.quota?'#4ade80':'#fff';
 }
