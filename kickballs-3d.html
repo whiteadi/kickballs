@@ -331,7 +331,7 @@ function noiseBlip(dur,vol=.12,delay=0){
 // Ambient pad drone (procedural)
 let droneNodes = [];
 function startDrone(col){
-  stopDrone();
+  stopMusic();
   const c = new THREE.Color(col);
   const baseFreq = 55 + (c.r * 30);
   const osc1=AC.createOscillator(), osc2=AC.createOscillator(), g=AC.createGain();
@@ -350,6 +350,106 @@ function stopDrone(){
   droneNodes=[];
 }
 
+// ─── PROCEDURAL MUSIC ENGINE ───
+// Each level gets a looping beat pattern + bass + synth melody
+let musicNodes=[], musicTimerId=null, musicBeat=0, musicBPM=120;
+
+const MUSIC_TRACKS = [
+  // L1 — warm chill 90bpm, pentatonic
+  { bpm:90,  bass:[55,55,69,55], melody:[523,659,784,659,523,440,523,659], kick:false, wobble:false },
+  // L2 — upbeat 108bpm
+  { bpm:108, bass:[55,73,82,73], melody:[587,740,880,740,587,494,587,740], kick:true,  wobble:false },
+  // L3 — energetic 126bpm
+  { bpm:126, bass:[73,73,98,73], melody:[659,831,988,831,659,554,659,831], kick:true,  wobble:false },
+  // L4 — driving 140bpm, add wobble bass
+  { bpm:140, bass:[82,82,110,82],melody:[740,932,1109,932,740,622,740,932], kick:true, wobble:true  },
+  // L5 — intense 160bpm
+  { bpm:160, bass:[55,65,73,65], melody:[880,1047,1319,1047,880,740,880,1047], kick:true, wobble:true },
+  // Boss — heavy 170bpm minor
+  { bpm:170, bass:[55,55,52,55], melody:[220,261,220,196,220,174,196,220], kick:true,  wobble:true  },
+];
+
+function musicNote(freq, dur, type, vol, delay){
+  const t=AC.currentTime+delay;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type; o.frequency.value=freq;
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(vol,t+.008);
+  g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+.01);
+  musicNodes.push(o,g);
+}
+
+function scheduleMusicBeat(track){
+  if(!soundOn) return;
+  const spb = 60/track.bpm;  // seconds per beat
+  const beat = musicBeat % track.bass.length;
+  const mbeat = musicBeat % track.melody.length;
+
+  // Bass note
+  const bassF = track.bass[beat];
+  if(track.wobble){
+    // Wobble bass: fast vibrato via 2 osc
+    const t=AC.currentTime;
+    const o1=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain(),filt=AC.createBiquadFilter();
+    o1.type='sawtooth'; o1.frequency.value=bassF;
+    o2.type='sawtooth'; o2.frequency.value=bassF*1.008;
+    filt.type='lowpass'; filt.frequency.setValueAtTime(800,t); filt.frequency.linearRampToValueAtTime(200,t+spb*.7);
+    g.gain.setValueAtTime(.12,t); g.gain.exponentialRampToValueAtTime(.001,t+spb*.9);
+    o1.connect(filt); o2.connect(filt); filt.connect(g); g.connect(master);
+    o1.start(t); o2.start(t); o1.stop(t+spb); o2.stop(t+spb);
+    musicNodes.push(o1,o2,g,filt);
+  } else {
+    musicNote(bassF, spb*.85, 'triangle', .12, 0);
+  }
+
+  // Kick on beat 0 and 2
+  if(track.kick && (beat===0||beat===2)){
+    const t=AC.currentTime;
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(40,t+.06);
+    g.gain.setValueAtTime(.35,t); g.gain.exponentialRampToValueAtTime(.001,t+.12);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t+.15);
+    musicNodes.push(o,g);
+  }
+
+  // Hi-hat on every beat
+  if(track.kick){
+    const buf=AC.createBuffer(1,Math.ceil(AC.sampleRate*.04),AC.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+    const src=AC.createBufferSource(), g=AC.createGain(), filt=AC.createBiquadFilter();
+    filt.type='highpass'; filt.frequency.value=8000;
+    g.gain.setValueAtTime(.04,AC.currentTime); g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.04);
+    src.buffer=buf; src.connect(filt); filt.connect(g); g.connect(master); src.start(); src.stop(AC.currentTime+.05);
+    musicNodes.push(src,g,filt);
+  }
+
+  // Melody every 2 beats
+  if(beat%2===0){
+    const mf=track.melody[mbeat];
+    musicNote(mf, spb*1.8, 'sine', .07, 0);
+    musicNote(mf*2, spb*.4, 'triangle', .025, spb*.5);
+  }
+
+  musicBeat++;
+  const nextSpb = 60/track.bpm;
+  musicTimerId = setTimeout(()=>scheduleMusicBeat(track), nextSpb*1000);
+}
+
+function startMusic(lvlIdx){
+  stopMusic();
+  if(!soundOn) return;
+  musicBeat=0; musicBPM=MUSIC_TRACKS[lvlIdx].bpm;
+  scheduleMusicBeat(MUSIC_TRACKS[lvlIdx]);
+}
+
+function stopMusic(){
+  if(musicTimerId){ clearTimeout(musicTimerId); musicTimerId=null; }
+  musicNodes.forEach(n=>{ try{ if(n.stop) n.stop(AC.currentTime+.1); else if(n.gain) n.gain.linearRampToValueAtTime(0,AC.currentTime+.1); }catch(e){} });
+  musicNodes=[];
+  musicBeat=0;
+}
+
 const SFX = {
   pop(p=1){ tone(500*p,.09,'sine',.2); tone(750*p,.06,'triangle',.1,.012); noiseBlip(.05,.08); },
   golden(){ [700,880,1100,1320].forEach((f,i)=>tone(f,.16,'sine',.17,i*.038)); },
@@ -362,6 +462,10 @@ const SFX = {
   tick(){ tone(880,.03,'square',.05); },
   powerup(){ [600,800,1000,1300].forEach((f,i)=>tone(f,.1,'sine',.18,i*.045)); },
   miss(){ tone(220,.1,'sine',.05); },
+  split(){ tone(900,.05,'triangle',.2); tone(1100,.05,'triangle',.15,.04); tone(1300,.05,'triangle',.1,.08); },
+  bomb_tick(){ tone(440,.04,'square',.12); },
+  bomb_explode(){ [180,120,80].forEach((f,i)=>tone(f,.4,'sawtooth',.35,i*.04)); noiseBlip(.25,.25); },
+  ghost(){ tone(660,.15,'sine',.1); tone(330,.2,'sine',.05,.08); },
 };
 
 // ═══════════════════════════════════════
@@ -466,9 +570,102 @@ const borderLine = new THREE.Line(borderGeo,borderMat); scene.add(borderLine);
 // Back wall
 const backWall = new THREE.Mesh(
   new THREE.PlaneGeometry(80, 50),
-  new THREE.MeshStandardMaterial({ color:0x181830, roughness:1 })
+  new THREE.MeshBasicMaterial({ color:0x181830 })
 );
 backWall.position.set(0,0,-20); scene.add(backWall);
+
+// Background canvas texture — updated per level theme
+const bgCanvas = document.createElement('canvas');
+bgCanvas.width=512; bgCanvas.height=320;
+const bgCtx = bgCanvas.getContext('2d');
+const bgTex = new THREE.CanvasTexture(bgCanvas);
+backWall.material.map = bgTex;
+backWall.material.needsUpdate = true;
+
+function drawBgTheme(themeIdx){
+  const w=bgCanvas.width, h=bgCanvas.height;
+  bgCtx.clearRect(0,0,w,h);
+  if(themeIdx<=1){
+    // ── SPACE: deep purple nebula ──
+    const g=bgCtx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#0a0520'); g.addColorStop(1,'#1a1040');
+    bgCtx.fillStyle=g; bgCtx.fillRect(0,0,w,h);
+    // Nebula blobs
+    for(let i=0;i<6;i++){
+      const ng=bgCtx.createRadialGradient(
+        Math.random()*w,Math.random()*h,0,
+        Math.random()*w,Math.random()*h,80+Math.random()*120);
+      const cols=['rgba(99,102,241,.18)','rgba(139,92,246,.15)','rgba(56,189,248,.12)'];
+      ng.addColorStop(0,cols[i%3]); ng.addColorStop(1,'rgba(0,0,0,0)');
+      bgCtx.fillStyle=ng; bgCtx.fillRect(0,0,w,h);
+    }
+    // Stars
+    for(let i=0;i<220;i++){
+      const sz=Math.random()*1.5;
+      bgCtx.fillStyle=`rgba(255,255,255,${.3+Math.random()*.7})`;
+      bgCtx.beginPath(); bgCtx.arc(Math.random()*w,Math.random()*h,sz,0,Math.PI*2); bgCtx.fill();
+    }
+  } else if(themeIdx<=3){
+    // ── NEON CITY: dark skyline with glowing windows ──
+    const g=bgCtx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#040510'); g.addColorStop(.6,'#0a0820'); g.addColorStop(1,'#1a0830');
+    bgCtx.fillStyle=g; bgCtx.fillRect(0,0,w,h);
+    // Ground glow
+    const gg=bgCtx.createLinearGradient(0,h*.7,0,h);
+    gg.addColorStop(0,'rgba(6,182,212,.0)'); gg.addColorStop(1,'rgba(6,182,212,.18)');
+    bgCtx.fillStyle=gg; bgCtx.fillRect(0,h*.7,w,h*.3);
+    // Buildings
+    const buildW=[22,18,30,16,26,20,28,24,14,32,18,22];
+    let bx=0;
+    for(let i=0;i<buildW.length;i++){
+      const bw=buildW[i]*(w/260); const bh=60+Math.random()*100;
+      const by=h-bh;
+      bgCtx.fillStyle='#080820';
+      bgCtx.fillRect(bx,by,bw-2,bh);
+      // Windows
+      for(let wy=by+6;wy<h-6;wy+=10){
+        for(let wx2=bx+4;wx2<bx+bw-6;wx2+=10){
+          if(Math.random()>.35){
+            const wc=['rgba(6,182,212,.8)','rgba(139,92,246,.8)','rgba(248,183,6,.7)','rgba(236,72,153,.7)'];
+            bgCtx.fillStyle=wc[Math.floor(Math.random()*wc.length)];
+            bgCtx.fillRect(wx2,wy,5,4);
+          }
+        }
+      }
+      bx+=bw;
+    }
+    // Horizon glow line
+    bgCtx.strokeStyle='rgba(6,182,212,.35)'; bgCtx.lineWidth=1.5;
+    bgCtx.beginPath(); bgCtx.moveTo(0,h*.72); bgCtx.lineTo(w,h*.72); bgCtx.stroke();
+  } else {
+    // ── VOLCANIC: lava cracks, red sky ──
+    const g=bgCtx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#1a0000'); g.addColorStop(.5,'#2a0800'); g.addColorStop(1,'#3a1000');
+    bgCtx.fillStyle=g; bgCtx.fillRect(0,0,w,h);
+    // Lava glow from bottom
+    const lg=bgCtx.createLinearGradient(0,h*.6,0,h);
+    lg.addColorStop(0,'rgba(255,80,0,0)'); lg.addColorStop(1,'rgba(255,120,0,.4)');
+    bgCtx.fillStyle=lg; bgCtx.fillRect(0,0,w,h);
+    // Lava cracks
+    bgCtx.strokeStyle='rgba(255,100,0,.6)'; bgCtx.lineWidth=1.5;
+    for(let i=0;i<18;i++){
+      let cx=Math.random()*w, cy=h*.6+Math.random()*h*.4;
+      bgCtx.beginPath(); bgCtx.moveTo(cx,cy);
+      for(let s=0;s<8;s++){
+        cx+=(Math.random()-.5)*30; cy-=5+Math.random()*20;
+        bgCtx.lineTo(cx,cy);
+      }
+      bgCtx.stroke();
+    }
+    // Ember particles
+    for(let i=0;i<80;i++){
+      const alpha=.3+Math.random()*.6;
+      bgCtx.fillStyle=`rgba(255,${80+Math.floor(Math.random()*100)},0,${alpha})`;
+      bgCtx.beginPath(); bgCtx.arc(Math.random()*w,h*.5+Math.random()*h*.5,1+Math.random()*2,0,Math.PI*2); bgCtx.fill();
+    }
+  }
+  bgTex.needsUpdate=true;
+}
 
 // Stars
 const starCount = 800;
@@ -590,6 +787,9 @@ const rings = new Rings();
 const GEO_BOSS   = new THREE.IcosahedronGeometry(1.75,2);
 const GEO_MINI   = new THREE.IcosahedronGeometry(.4,1);
 const GEO_GOLDEN = new THREE.IcosahedronGeometry(.8,1);
+const GEO_SPLIT  = new THREE.IcosahedronGeometry(.7,1);   // splits into 3
+const GEO_BOMB   = new THREE.IcosahedronGeometry(.75,1);  // skull-ish, timed
+const GEO_GHOST  = new THREE.IcosahedronGeometry(.65,1);  // fades in/out
 
 // Cache a range of sizes
 const GEO_SIZES = [.5,.6,.65,.72,.78,.88,.95].map(r=>new THREE.IcosahedronGeometry(r,1));
@@ -640,38 +840,44 @@ window.addEventListener('mouseup',()=>curEl.classList.remove('active'));
 function spawnBall(type='normal', atPos=null){
   const ld=LEVELS[lvlIdx];
   const isBossT=type==='boss', isGold=type==='golden', isMini=type==='mini';
+  const isSplit=type==='split', isBomb=type==='bomb', isGhost=type==='ghost';
 
-  // Pick random size and archetype for normal balls
   const sizeIdx = Math.floor(Math.random()*GEO_SIZES.length);
-  const geo  = isBossT ? GEO_BOSS : isMini ? GEO_MINI : isGold ? GEO_GOLDEN : GEO_SIZES[sizeIdx];
-  const r    = isBossT ? 1.75 : isMini ? .4 : isGold ? .8 : [.5,.6,.65,.72,.78,.88,.95][sizeIdx];
+  const geo  = isBossT?GEO_BOSS : isMini?GEO_MINI : isGold?GEO_GOLDEN
+             : isSplit?GEO_SPLIT : isBomb?GEO_BOMB : isGhost?GEO_GHOST
+             : GEO_SIZES[sizeIdx];
+  const r    = isBossT?1.75 : isMini?.4 : isGold?.8
+             : isSplit?.7 : isBomb?.75 : isGhost?.65
+             : [.5,.6,.65,.72,.78,.88,.95][sizeIdx];
 
   const arch = ARCHETYPES[Math.floor(Math.random()*ARCHETYPES.length)];
-  const col  = isGold ? 0xfbbf24 : isBossT ? 0xdc2626 : PALETTE[Math.floor(Math.random()*PALETTE.length)];
-  const emv  = isGold ? 0xfbbf24 : isBossT ? 0xff2200 : arch.emvStr>.0 ? col : 0;
+  const col  = isGold?0xfbbf24 : isBossT?0xdc2626
+             : isSplit?0x22ffaa : isBomb?0xff4400 : isGhost?0xccaaff
+             : PALETTE[Math.floor(Math.random()*PALETTE.length)];
+  const emv  = isGold?0xfbbf24 : isBossT?0xff2200
+             : isSplit?0x22ffaa : isBomb?0xff2200 : isGhost?0xaa88ff
+             : arch.emvStr>.0?col:0;
   const mat  = mkMat(col, emv,
-    isGold ? .1 : isBossT ? .15 : arch.rough,
-    isGold ? .92 : isBossT ? .8 : arch.metal,
-    arch.emvStr
+    isGold?.1 : isBossT?.15 : isSplit?.3 : isBomb?.4 : isGhost?.1 : arch.rough,
+    isGold?.92 : isBossT?.8 : isSplit?.7 : isBomb?.3 : isGhost?.2 : arch.metal,
+    isGold?.8 : isBossT?.45 : isSplit?.6 : isBomb?.5 : isGhost?.7 : arch.emvStr
   );
+  if(isGhost){ mat.transparent=true; mat.opacity=1; }
 
   const mesh = new THREE.Mesh(geo, mat); mesh.castShadow=true;
 
-  // ── Edge-spawn: balls come from the arena edges, aimed inward ──
   let pos, vx, vy, vz;
-  const spd = BASE_SPD * ld.speed * (isMini?.72:1) * (isBossT?.55:1) * (1+Math.random()*.3);
+  const spd = BASE_SPD * ld.speed * (isMini?.72:1) * (isBossT?.55:1) * (isBomb?.9:1) * (1+Math.random()*.3);
 
   if(atPos){
     pos = atPos.clone();
     const θ=Math.random()*Math.PI*2, φ=(Math.random()-.3)*Math.PI;
     vx=Math.cos(θ)*Math.cos(φ)*spd; vy=Math.cos(φ)*spd*.7+.02; vz=Math.sin(θ)*Math.cos(φ)*spd*.4;
   } else if(isBossT){
-    // Boss starts centre
     pos=new THREE.Vector3(0,2,0);
     const θ=Math.random()*Math.PI*2;
     vx=Math.cos(θ)*spd*.5; vy=spd*.3+.02; vz=Math.sin(θ)*spd*.3;
   } else {
-    // Pick a random edge: left, right, top, bottom
     const edge=Math.floor(Math.random()*4);
     switch(edge){
       case 0: pos=new THREE.Vector3(-HW+r,  (Math.random()-.3)*HH*.8, (Math.random()-.5)*HD*.7);
@@ -686,21 +892,22 @@ function spawnBall(type='normal', atPos=null){
   }
   mesh.position.copy(pos);
 
-  // Glow point light on special balls
+  // Glow lights
   let glow=null;
   if(isGold){ glow=new THREE.PointLight(0xfbbf24,2.8,5.5); mesh.add(glow); }
   if(isBossT){ glow=new THREE.PointLight(0xff3300,4.5,11); mesh.add(glow); }
-  // Neon archetype gets a subtle glow too
-  if(!isGold && !isBossT && arch.emvStr>.0){
+  if(isSplit){ glow=new THREE.PointLight(0x22ffaa,1.8,4); mesh.add(glow); }
+  if(isBomb){ glow=new THREE.PointLight(0xff4400,2.5,5); mesh.add(glow); }
+  if(isGhost){ glow=new THREE.PointLight(0xaa88ff,1.2,4); mesh.add(glow); }
+  if(!isGold&&!isBossT&&!isSplit&&!isBomb&&!isGhost&&arch.emvStr>.0){
     glow=new THREE.PointLight(col,.8,3.5); mesh.add(glow);
   }
 
-  // Glow billboard sprite
-  const spriteSize = isBossT?5.5:isGold?3:r*3.2;
+  const spriteSize = isBossT?5.5 : isGold?3 : r*3.2;
   const glowSprite = new THREE.Mesh(
     new THREE.PlaneGeometry(spriteSize,spriteSize),
     new THREE.MeshBasicMaterial({ map:GLOW_TEX, color:col, transparent:true,
-      opacity:isGold?.55:isBossT?.45:arch.emvStr>.0?.35:.22,
+      opacity:isGold?.55:isBossT?.45:isSplit?.5:isBomb?.5:isGhost?.4:arch.emvStr>.0?.35:.22,
       blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide })
   );
   glowSprite.position.z=-.15; mesh.add(glowSprite);
@@ -710,8 +917,12 @@ function spawnBall(type='normal', atPos=null){
   const ball={ mesh,mat,type,vx,vy,vz,r,
     rx:(Math.random()-.5)*.05, rz:(Math.random()-.5)*.05,
     glow, glowSprite, alive:true, spawnT:0, dieT:-1,
-    squishX:1, squishY:1, squishZ:1,
-    trailAcc:0,
+    squishX:1, squishY:1, squishZ:1, trailAcc:0,
+    // bomb timer
+    bombTimer: isBomb ? (4.5 + Math.random()*2) : null,
+    bombTickAcc: 0,
+    // ghost phase
+    ghostPhase: isGhost ? Math.random()*Math.PI*2 : null,
   };
   if(isBossT){ ball.hp=bossMaxHP; bossObj=ball; }
   balls.push(ball); return ball;
@@ -725,23 +936,47 @@ function killBall(ball, clicked=false){
   ball.alive=false; ball.dieT=0;
 
   const p=ball.mesh.position;
-  const col=ball.type==='golden'?0xfbbf24:ball.type==='boss'?0xff2200:ball.mat.color.getHex();
-  parts.burst(p.x,p.y,p.z,col, ball.type==='boss'?40:ball.type==='golden'?24:18, ball.type==='boss'?1.9:ball.type==='golden'?1.3:1);
-  // Second burst in different color for variety
+  const isSplit=ball.type==='split', isBomb=ball.type==='bomb', isGhost=ball.type==='ghost';
+  const col=ball.type==='golden'?0xfbbf24:ball.type==='boss'?0xff2200
+    :isSplit?0x22ffaa:isBomb?0xff4400:isGhost?0xcc88ff:ball.mat.color.getHex();
+
+  parts.burst(p.x,p.y,p.z,col,
+    ball.type==='boss'?40:ball.type==='golden'?24:isBomb?32:18,
+    ball.type==='boss'?1.9:ball.type==='golden'?1.3:isBomb?1.6:1);
   parts.burst(p.x,p.y,p.z,0xffffff, ball.type==='boss'?12:6, .5);
   rings.spawn(p.x,p.y,p.z,col);
-  shakeMag=ball.type==='boss'?.3:ball.type==='golden'?.16:.08;
+  shakeMag=ball.type==='boss'?.3:ball.type==='golden'?.16:isBomb?.28:.08;
+
+  // Split → spawn 3 fragments
+  if(isSplit && clicked){
+    if(soundOn) SFX.split();
+    for(let i=0;i<3;i++){
+      setTimeout(()=>{ if(gs==='playing') spawnBall('normal',p); },i*80);
+    }
+  }
+  // Ghost pop
+  if(isGhost && clicked && soundOn) SFX.ghost();
+  // Bomb explode
+  if(isBomb){
+    if(soundOn) SFX.bomb_explode();
+    flashScreen('#ff4400',.3);
+    // Extra ring + combo reset
+    rings.spawn(p.x,p.y,p.z,0xff4400);
+    rings.spawn(p.x,p.y,p.z,0xff8800);
+    if(clicked){ combo=0; hideCombo(); }
+  }
 
   if(clicked){
-    const base=ball.type==='golden'?50:10;
+    const base=ball.type==='golden'?50:isSplit?25:isBomb?-30:isGhost?30:10;
     const now=performance.now();
-    combo=(now-lastHit<COMBO_WIN)?Math.min(combo+1,12):1;
+    if(!isBomb) combo=(now-lastHit<COMBO_WIN)?Math.min(combo+1,12):1;
     lastHit=now;
-    const pts=base*combo;
-    score+=pts; floater(p,pts,combo>1,ball.type==='golden');
-    if(combo>1) showCombo(combo);
-    if(soundOn){ ball.type==='golden'?SFX.golden():SFX.pop(.78+Math.random()*.44+(lvlIdx*.04)); if(combo>=3)SFX.combo(combo); }
-    if(!isBoss) popsThisLevel++;
+    const pts=base*(isBomb?1:combo);
+    score=Math.max(0,score+pts);
+    floater(p,pts,combo>1&&!isBomb,ball.type==='golden'||isGhost);
+    if(combo>1&&!isBomb) showCombo(combo);
+    if(soundOn && !isSplit && !isGhost && !isBomb){ SFX.pop(.78+Math.random()*.44+(lvlIdx*.04)); if(combo>=3)SFX.combo(combo); }
+    if(!isBoss && !isBomb) popsThisLevel++;
     updateQuotaUI();
   }
 
@@ -765,12 +1000,13 @@ function startLevel(idx){
   puTimer=5+Math.random()*5;
   popsThisLevel=0; waveTimer=0;
 
-  // Theme transition
+  // Theme transition + background
   tgtFogCol.setHex(ld.fog);
   tgtFillCol.setHex(ld.col);
   borderMat.color.setHex(ld.col);
   spot.color.setHex(ld.col);
   rimA.color.lerpColors(new THREE.Color(ld.col), new THREE.Color(0x38bdf8), .35);
+  drawBgTheme(idx);
 
   // Update HUD
   document.getElementById('lvl-chip').textContent=`Level ${idx+1}`;
@@ -783,10 +1019,10 @@ function startLevel(idx){
 
   if(isBoss){
     bossMaxHP=10; bossHP=bossMaxHP;
-    if(soundOn) startDrone(ld.col);
+    if(soundOn) startMusic(idx);
     showBossWarning(()=>{ doSpawnLevel(idx); setBossHP(true); });
   } else {
-    stopDrone();
+    if(soundOn) startMusic(idx);
     showLevelAnnounce(idx,()=>doSpawnLevel(idx));
   }
 }
@@ -798,8 +1034,14 @@ function doSpawnLevel(idx){
     for(let i=0;i<5;i++) setTimeout(()=>spawnBall('mini'),350+i*160);
   } else {
     for(let i=0;i<ld.balls;i++){
-      const isGold=(idx>=1&&i===1)||(idx>=3&&i===Math.floor(ld.balls*.6));
-      setTimeout(()=>spawnBall(isGold?'golden':'normal'),i*110);
+      const rng=Math.random();
+      let type='normal';
+      if(idx>=1&&i===1) type='golden';
+      else if(idx>=3&&i===Math.floor(ld.balls*.6)) type='golden';
+      else if(idx>=2&&rng<.18) type='split';
+      else if(idx>=3&&rng<.14) type='bomb';
+      else if(idx>=2&&rng<.12) type='ghost';
+      setTimeout(()=>spawnBall(type),i*110);
     }
   }
 }
@@ -824,7 +1066,7 @@ function onBallClick(ball){
     floater(ball.mesh.position,pts,combo>1,false);
     if(soundOn && combo>=3) SFX.combo(combo);
     if(bossHP<=0){
-      if(soundOn){ SFX.boss_die(); stopDrone(); }
+      if(soundOn){ SFX.boss_die(); stopMusic(); }
       score+=500;
       killBall(ball,false);
       setBossHP(false);
@@ -990,12 +1232,12 @@ function showBossWarning(cb){
 }
 
 function endGameover(){
-  gs='over'; if(soundOn) SFX.gameover(); stopDrone();
+  gs='over'; if(soundOn) SFX.gameover(); stopMusic();
   document.getElementById('go-txt').textContent=`You scored ${score.toLocaleString()} points`;
   showOv('ov-go');
 }
 function endWin(){
-  gs='win'; if(soundOn) SFX.win(); stopDrone();
+  gs='win'; if(soundOn) SFX.win(); stopMusic();
   document.getElementById('win-txt').textContent=`Final Score: ${score.toLocaleString()}`;
   showOv('ov-win');
 }
@@ -1048,6 +1290,7 @@ document.getElementById('snd').addEventListener('click',()=>{
 // Init
 document.getElementById('la').style.display='none';
 document.getElementById('bw').style.display='none';
+drawBgTheme(0);
 const hiEl=document.getElementById('hi-lbl');
 if(hiEl&&hiScore>0) hiEl.textContent=`Best: ${hiScore.toLocaleString()}`;
 
@@ -1077,7 +1320,7 @@ function loop(ts){
   // Theme color lerp
   curFogCol.lerp(tgtFogCol,.02);
   scene.fog.color.copy(curFogCol);
-  backWall.material.color.copy(curFogCol).multiplyScalar(.6);
+  // backWall uses canvas texture — no color lerp needed
   curFillCol.lerp(tgtFillCol,.03);
   fillPt.color.copy(curFillCol);
 
@@ -1149,6 +1392,32 @@ function loop(ts){
     // Golden pulsing glow
     if(b.type==='golden'&&b.glow) b.glow.intensity=2.5+Math.sin(T*4.5)*.9;
 
+    // Ghost: fade in and out on a sine wave
+    if(b.type==='ghost'){
+      b.ghostPhase+=dt*1.8;
+      const vis=0.15+Math.abs(Math.sin(b.ghostPhase))*0.85;
+      b.mat.opacity=vis;
+      if(b.glow) b.glow.intensity=vis*1.2;
+    }
+
+    // Bomb: tick countdown, auto-explode
+    if(b.type==='bomb' && b.bombTimer!==null){
+      b.bombTimer-=dt;
+      b.bombTickAcc+=dt;
+      // Pulse red faster as timer drops
+      const urgency=Math.max(0.1, b.bombTimer/6);
+      if(b.glow) b.glow.intensity=2.5+Math.sin(T*8/urgency)*.8;
+      if(b.bombTickAcc > urgency*0.5){
+        b.bombTickAcc=0;
+        if(soundOn) SFX.bomb_tick();
+        b.mat.emissiveIntensity=1.2; setTimeout(()=>{ if(b.mat) b.mat.emissiveIntensity=.5; },80);
+      }
+      if(b.bombTimer<=0) killBall(b,false);
+    }
+
+    // Split trail
+    if(b.type==='split'&&b.trailAcc>.06){ parts.trail(px,py,pz,0x22ffaa,.12); b.trailAcc=0; }
+
     // Trail particles (golden + fast balls)
     b.trailAcc+=dt;
     const tspd2=b.vx*b.vx+b.vy*b.vy+b.vz*b.vz;
@@ -1195,7 +1464,13 @@ function loop(ts){
       waveTimer-=dt;
       if(waveTimer<=0){
         const toSpawn=ld.balls;
-        for(let i=0;i<toSpawn;i++) setTimeout(()=>{ if(gs==='playing'&&!transitioning) spawnBall('normal'); }, i*140);
+        for(let i=0;i<toSpawn;i++) setTimeout(()=>{
+          if(gs==='playing'&&!transitioning){
+            const r=Math.random();
+            const t=lvlIdx>=3&&r<.14?'bomb':lvlIdx>=2&&r<.28?'split':lvlIdx>=2&&r<.38?'ghost':'normal';
+            spawnBall(t);
+          }
+        }, i*140);
         waveTimer=Math.max(1.2, 3.0-lvlIdx*0.35);
       }
     } else { waveTimer=0; }
