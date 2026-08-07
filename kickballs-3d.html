@@ -1585,8 +1585,13 @@ function loop(ts){
       if(dist<minDist){
         // Push ball away with a kick
         const nx=dx/dist, ny=dy/dist;
-        const kickSpd=Math.max(Math.sqrt(b.vx*b.vx+b.vy*b.vy)*1.4, BASE_SPD*3);
-        b.vx=nx*kickSpd; b.vy=ny*kickSpd;
+        if(b.type==='boss'){
+          // Boss just nudges off bumper gently — no speed accumulation
+          b.vx=nx*BASE_SPD*LEVELS[5].speed*1.0; b.vy=ny*BASE_SPD*LEVELS[5].speed*1.0;
+        } else {
+          const kickSpd=Math.max(Math.sqrt(b.vx*b.vx+b.vy*b.vy)*1.4, BASE_SPD*3);
+          b.vx=nx*kickSpd; b.vy=ny*kickSpd;
+        }
         b.mesh.position.x=bx+nx*minDist; b.mesh.position.y=by+ny*minDist;
         b.squishX=1.4; b.squishY=.7;
         // Bumper flash
