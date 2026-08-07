@@ -12,12 +12,13 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a1e;font-family:
 
 /* ─── CURSOR GLOW ─── */
 #cur{
-  position:absolute;width:36px;height:36px;border-radius:50%;pointer-events:none;
-  background:radial-gradient(circle,rgba(167,139,250,.5) 0%,transparent 70%);
+  position:absolute;width:48px;height:48px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(255,255,255,.9) 0%,rgba(167,139,250,.6) 30%,transparent 70%);
   transform:translate(-50%,-50%);transition:opacity .2s,transform .08s;
   mix-blend-mode:screen;z-index:10;
+  box-shadow:0 0 0 1.5px rgba(255,255,255,.5);
 }
-#cur.active{transform:translate(-50%,-50%) scale(1.6);background:radial-gradient(circle,rgba(251,191,36,.6) 0%,transparent 70%)}
+#cur.active{transform:translate(-50%,-50%) scale(1.5);background:radial-gradient(circle,rgba(255,255,255,1) 0%,rgba(251,191,36,.8) 35%,transparent 70%)}
 
 /* ─── UI ─── */
 #ui{position:absolute;inset:0;pointer-events:none;user-select:none}
@@ -225,7 +226,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0a0a1e;font-family:
   <div id="bhp"><div id="bhpl">⚠ Boss HP</div><div id="bhpt"><div id="bhpf"></div></div></div>
 
   <div id="la"><div class="la-pre">Level</div><div class="la-n" id="la-n">1</div><div class="la-name" id="la-name">Warm Up</div></div>
-  <div id="bw"><div class="bwt">⚠ BOSS ⚠</div><div class="bws">Incoming</div></div>
+  <div id="bw"><div class="bwt">⚠ BOSS INCOMING ⚠</div><div class="bws">Clear the minions to strike!</div></div>
 
   <div id="pu-toast" class="glass"></div>
   <div id="floaters"></div>
@@ -1116,6 +1117,14 @@ function onBallClick(ball){
   if(now-lastClickTime < 80) return; // global 80ms gate — blocks any double-fire
   lastClickTime=now;
   if(ball.type==='boss'){
+    // Minions must be cleared before the boss takes damage
+    const minisAlive = balls.filter(b=>b.alive && b.type==='mini').length;
+    if(minisAlive > 0){
+      if(soundOn) SFX.miss();
+      flashScreen('#ff4400',.15);
+      floater(ball.mesh.position,'SHIELD!',false,false);
+      return;
+    }
     if(now-lastBossHitTime < 300) return; // boss requires deliberate clicks, not spam
     lastBossHitTime=now;
     bossHP--;
