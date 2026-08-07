@@ -298,8 +298,8 @@ const BASE_SPD  = 0.075;   // snappy base speed
 const GRAVITY   = -0.0005; // very low — balls mostly float & bounce, not fall
 const BOUNCE    = 0.85;    // very lively
 const MIN_SPD   = 0.025;   // enforce minimum so balls never settle
-// Arena: 16:9 ratio to fill the screen properly
-const HW=15, HH=8.5, HD=3.5;
+// Arena: computed dynamically from camera frustum in onResize — fills the screen on any device
+let HW=15, HH=8.5; const HD=3.5;
 const LS_KEY    = 'kb3d_hi4';
 const COMBO_WIN = 1600;
 const PALETTE   = [0x6366f1,0x8b5cf6,0x06b6d4,0x10b981,0xf59e0b,0xec4899,0x3b82f6,0xf97316,0xa855f7,0x14b8a6];
@@ -514,16 +514,25 @@ camera.lookAt(0,0,0);
 function onResize(){
   renderer.setSize(innerWidth,innerHeight);
   camera.aspect=innerWidth/innerHeight;
-  // In portrait mode the arena (HW=15) needs a wider FOV to stay on screen
-  if(innerWidth < innerHeight){
-    // Compute the minimum FOV so the full arena width fits
-    const portraitFov = 2*Math.atan(HW/camera.aspect/CAM_BASE.z)*180/Math.PI;
-    camera.fov = Math.max(60, portraitFov * 1.05);
-  } else {
-    camera.fov = 60;
-  }
+  camera.fov=60;
   camera.updateProjectionMatrix();
+  // Recompute arena bounds from frustum so balls always fill the screen
+  const fovRad = camera.fov * Math.PI/180;
+  HH = Math.tan(fovRad/2) * CAM_BASE.z * 0.92;
+  HW = HH * camera.aspect;
+  // Rebuild border geometry to match new bounds
+  if(borderLine){
+    const pts=[
+      new THREE.Vector3(-HW,-HH,0), new THREE.Vector3(HW,-HH,0),
+      new THREE.Vector3(HW,HH,0),   new THREE.Vector3(-HW,HH,0),
+      new THREE.Vector3(-HW,-HH,0),
+    ];
+    borderLine.geometry.setFromPoints(pts);
+  }
+  if(floorMesh) floorMesh.position.y=-HH-1;
+  if(gridH) gridH.position.y=-HH-.98;
 }
+let borderLine=null, floorMesh=null, gridH=null;
 window.addEventListener('resize',onResize); onResize();
 
 // ═══════════════════════════════════════
@@ -573,11 +582,11 @@ const flGeo = new THREE.PlaneGeometry(50, 36, 30, 20);
   }
   flGeo.computeVertexNormals();
 }
-const floorMesh = new THREE.Mesh(flGeo, new THREE.MeshStandardMaterial({ color:0x1a1a40,roughness:.9,metalness:.15 }));
+floorMesh = new THREE.Mesh(flGeo, new THREE.MeshStandardMaterial({ color:0x1a1a40,roughness:.9,metalness:.15 }));
 floorMesh.rotation.x=-Math.PI/2; floorMesh.position.y=-HH-1; scene.add(floorMesh);
 
 // Grid
-const gridH = new THREE.GridHelper(50, 24, 0x222248, 0x16163a); gridH.position.y=-HH-.98; scene.add(gridH);
+gridH = new THREE.GridHelper(50, 24, 0x222248, 0x16163a); gridH.position.y=-HH-.98; scene.add(gridH);
 
 // Arena border — glowing frame that matches the play area
 const borderPts = [
@@ -587,7 +596,8 @@ const borderPts = [
 ];
 const borderGeo = new THREE.BufferGeometry().setFromPoints(borderPts);
 const borderMat = new THREE.LineBasicMaterial({ color:0x6366f1,transparent:true,opacity:.45 });
-const borderLine = new THREE.Line(borderGeo,borderMat); scene.add(borderLine);
+borderLine = new THREE.Line(borderGeo,borderMat); scene.add(borderLine);
+onResize(); // re-run now that borderLine exists to get correct HW/HH
 
 // Back wall
 const backWall = new THREE.Mesh(
