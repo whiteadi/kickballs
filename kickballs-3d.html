@@ -514,6 +514,14 @@ camera.lookAt(0,0,0);
 function onResize(){
   renderer.setSize(innerWidth,innerHeight);
   camera.aspect=innerWidth/innerHeight;
+  // In portrait mode the arena (HW=15) needs a wider FOV to stay on screen
+  if(innerWidth < innerHeight){
+    // Compute the minimum FOV so the full arena width fits
+    const portraitFov = 2*Math.atan(HW/camera.aspect/CAM_BASE.z)*180/Math.PI;
+    camera.fov = Math.max(60, portraitFov * 1.05);
+  } else {
+    camera.fov = 60;
+  }
   camera.updateProjectionMatrix();
 }
 window.addEventListener('resize',onResize); onResize();
@@ -949,9 +957,16 @@ function spawnBall(type='normal', atPos=null){
   );
   glowSprite.position.z=-.15; glowSprite.raycast=()=>{}; mesh.add(glowSprite);
 
+  // Invisible collider sphere — 40% larger than visual radius for forgiving clicks
+  const collider = new THREE.Mesh(
+    new THREE.SphereGeometry(r*1.4, 6, 4),
+    new THREE.MeshBasicMaterial({ visible:false })
+  );
+  mesh.add(collider);
+
   mesh.scale.setScalar(.01); scene.add(mesh);
 
-  const ball={ mesh,mat,type,vx,vy,vz,r,
+  const ball={ mesh,mat,type,vx,vy,vz,r,collider,
     rx:(Math.random()-.5)*.05, rz:(Math.random()-.5)*.05,
     glow, glowSprite, alive:true, spawnT:0, dieT:-1,
     squishX:1, squishY:1, squishZ:1, trailAcc:0,
@@ -1153,11 +1168,13 @@ function onDown(e){
   ptr.x= ((ev.clientX-rect.left)/rect.width)*2-1;
   ptr.y=-((ev.clientY-rect.top)/rect.height)*2+1;
   rc.setFromCamera(ptr,camera);
-  // non-recursive: only test the ball mesh itself, not glow sprite children
+  // Test collider children (invisible large spheres) for forgiving hit detection
   const meshes=balls.filter(b=>b.alive).map(b=>b.mesh);
-  const hits=rc.intersectObjects(meshes,false);
+  const hits=rc.intersectObjects(meshes,true);
   if(hits.length){
-    const ball=balls.find(b=>b.mesh===hits[0].object);
+    // hit.object may be the collider child — walk up to find the ball mesh
+    const hitObj=hits[0].object;
+    const ball=balls.find(b=>b.mesh===hitObj||b.mesh===hitObj.parent);
     if(ball) onBallClick(ball);
   } else {
     if(soundOn) SFX.miss();
@@ -1455,13 +1472,13 @@ function loop(ts){
       const mx=mouseX*HW, my=-mouseY*HH;
       const dx=b.mesh.position.x-mx, dy=b.mesh.position.y-my;
       const dist=Math.sqrt(dx*dx+dy*dy)||1;
-      if(dist<6){ // only evade when cursor is close
-        const evade=0.004*(1-dist/6);
+      if(dist<5){ // only evade when cursor is close
+        const evade=0.002*(1-dist/5);
         b.vx+=dx/dist*evade; b.vy+=dy/dist*evade;
       }
-      // Enforce boss speed — never let it slow down
+      // Enforce boss speed — keep moving but beatable
       const bspd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
-      const minBossSpd=BASE_SPD*LEVELS[5].speed*1.2;
+      const minBossSpd=BASE_SPD*LEVELS[5].speed*0.85;
       if(bspd<minBossSpd){ b.vx=b.vx/bspd*minBossSpd; b.vy=b.vy/bspd*minBossSpd; }
     }
 
